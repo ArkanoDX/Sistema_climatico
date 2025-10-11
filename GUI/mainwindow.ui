@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1119</width>
+    <height>765</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Estación Meteorologica</string>
+  </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">/*background-color: #d0d0d0;*/
+
+background-color: #d2f4f9;</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLineEdit" name="vault_temp">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>160</y>
+      <width>171</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */
+</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="vault_lluv">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>160</y>
+      <width>171</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="vault_hum">
+    <property name="geometry">
+     <rect>
+      <x>260</x>
+      <y>160</y>
+      <width>171</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="vault_vien">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>160</y>
+      <width>171</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+   </widget>
+   <widget class="QGraphicsView" name="graphics_View">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>340</y>
+      <width>1051</width>
+      <height>321</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="button_stop">
+    <property name="geometry">
+     <rect>
+      <x>1010</x>
+      <y>700</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+</string>
+    </property>
+    <property name="text">
+     <string>STOP</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="button_expo">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>700</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+</string>
+    </property>
+    <property name="text">
+     <string>EXPORTAR</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>10</y>
+      <width>71</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="pixmap">
+     <pixmap>../../../Pictures/ITQ Herramientas/LOGOS-INSTITUCIONALES-ITQ-04.png</pixmap>
+    </property>
+    <property name="scaledContents">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>530</x>
+      <y>20</y>
+      <width>71</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="pixmap">
+     <pixmap>../../../Pictures/ITQ Herramientas/20181011001342_44_mascotOrig.png</pixmap>
+    </property>
+    <property name="scaledContents">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>830</x>
+      <y>20</y>
+      <width>241</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="pixmap">
+     <pixmap>../../../Pictures/ITQ Herramientas/Logo-TecNM.png</pixmap>
+    </property>
+    <property name="scaledContents">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="vault_fecha_hora">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>670</y>
+      <width>221</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+    <property name="text">
+     <string>FECHA_HORA</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>120</y>
+      <width>111</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">/*background-color: #ffffff;
+
+/*border: 1px solid #000000;     /* grosor, estilo y color del borde */
+/*border-radius: 5px;           /* opcional: esquinas redondeadas */
+/*padding: 5px;                  /* opcional: espacio interno */ 
+
+font-size: 16px;
+font-weight: bold;
+color: #0b0b0b;
+font: 75 12pt 
+</string>
+    </property>
+    <property name="text">
+     <string>TEMPERATURA</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>120</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 16px;
+font-weight: bold;
+color: #0b0b0b;
+font: 75 12pt</string>
+    </property>
+    <property name="text">
+     <string>HUMEDAD</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_7">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>120</y>
+      <width>61</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 16px;
+font-weight: bold;
+color: #0b0b0b;
+font: 75 12pt</string>
+    </property>
+    <property name="text">
+     <string>VIENTO</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_8">
+    <property name="geometry">
+     <rect>
+      <x>750</x>
+      <y>120</y>
+      <width>61</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 16px;
+font-weight: bold;
+color: #0b0b0b;
+font: 75 12pt</string>
+    </property>
+    <property name="text">
+     <string>LLUVIA</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="vault_qai">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>160</y>
+      <width>171</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #ffffff;
+
+border: 1px solid #000000;     /* grosor, estilo y color del borde */
+border-radius: 5px;           /* opcional: esquinas redondeadas */
+padding: 5px;                  /* opcional: espacio interno */</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_9">
+    <property name="geometry">
+     <rect>
+      <x>980</x>
+      <y>120</y>
+      <width>31</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 16px;
+font-weight: bold;
+color: #0b0b0b;
+font: 75 12pt</string>
+    </property>
+    <property name="text">
+     <string>QAI</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1119</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
