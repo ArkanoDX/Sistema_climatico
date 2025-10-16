@@ -1,143 +1,92 @@
+# gui.py
+# Este archivo contiene únicamente el diseño de la interfaz.
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1119, 765)
         MainWindow.setAutoFillBackground(False)
-        MainWindow.setStyleSheet("/*background-color: #d0d0d0;*/\n"
-"\n"
-"background-color: #083174;")
+        MainWindow.setStyleSheet("background-color: #083174;")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.vault_temp = QtWidgets.QLineEdit(self.centralwidget)
         self.vault_temp.setGeometry(QtCore.QRect(30, 160, 171, 151))
-        self.vault_temp.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */\n"
-"")
+        self.vault_temp.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_temp.setObjectName("vault_temp")
         self.vault_lluv = QtWidgets.QLineEdit(self.centralwidget)
         self.vault_lluv.setGeometry(QtCore.QRect(690, 160, 171, 151))
-        self.vault_lluv.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.vault_lluv.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_lluv.setObjectName("vault_lluv")
         self.vault_hum = QtWidgets.QLineEdit(self.centralwidget)
         self.vault_hum.setGeometry(QtCore.QRect(260, 160, 171, 151))
-        self.vault_hum.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.vault_hum.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_hum.setObjectName("vault_hum")
         self.vault_vien = QtWidgets.QLineEdit(self.centralwidget)
         self.vault_vien.setGeometry(QtCore.QRect(480, 160, 171, 151))
-        self.vault_vien.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.vault_vien.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_vien.setObjectName("vault_vien")
         self.graphics_View = QtWidgets.QGraphicsView(self.centralwidget)
         self.graphics_View.setGeometry(QtCore.QRect(30, 340, 1051, 321))
-        self.graphics_View.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.graphics_View.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.graphics_View.setObjectName("graphics_View")
         self.button_stop = QtWidgets.QPushButton(self.centralwidget)
         self.button_stop.setGeometry(QtCore.QRect(1010, 700, 75, 23))
-        self.button_stop.setStyleSheet("background-color: #ffffff;\n"
-"")
+        self.button_stop.setStyleSheet("background-color: #ffffff;")
         self.button_stop.setObjectName("button_stop")
         self.button_expo = QtWidgets.QPushButton(self.centralwidget)
         self.button_expo.setGeometry(QtCore.QRect(910, 700, 75, 23))
-        self.button_expo.setStyleSheet("background-color: #ffffff;\n"
-"")
+        self.button_expo.setStyleSheet("background-color: #ffffff;")
         self.button_expo.setObjectName("button_expo")
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setGeometry(QtCore.QRect(60, 10, 71, 61))
         self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap("../../../Pictures/ITQ Herramientas/LOGOS-INSTITUCIONALES-ITQ-04.png"))
+
+
+        # NOTA: Asegúrate de que las rutas a tus imágenes sean correctas
+        self.label.setPixmap(QtGui.QPixmap("Pictures\ITQ Herramientas\LOGOS-INSTITUCIONALES-ITQ-04.png"))
         self.label.setScaledContents(True)
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(530, 20, 71, 61))
         self.label_2.setText("")
-        self.label_2.setPixmap(QtGui.QPixmap("../../../Pictures/ITQ Herramientas/20181011001342_44_mascotOrig.png"))
+        self.label_2.setPixmap(QtGui.QPixmap("Pictures/ITQ Herramientas/20181011001342_44_mascotOrig.png"))
         self.label_2.setScaledContents(True)
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setGeometry(QtCore.QRect(830, 20, 241, 61))
         self.label_3.setText("")
-        self.label_3.setPixmap(QtGui.QPixmap("../../../Pictures/ITQ Herramientas/LOGO_ITQ_TECNM_BLANCO.png"))
+        self.label_3.setPixmap(QtGui.QPixmap("Pictures/ITQ Herramientas/LOGO_ITQ_TECNM_BLANCO.png"))
         self.label_3.setScaledContents(True)
         self.label_3.setObjectName("label_3")
         self.vault_fecha_hora = QtWidgets.QLabel(self.centralwidget)
         self.vault_fecha_hora.setGeometry(QtCore.QRect(30, 670, 221, 31))
-        self.vault_fecha_hora.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.vault_fecha_hora.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_fecha_hora.setObjectName("vault_fecha_hora")
         self.label_5 = QtWidgets.QLabel(self.centralwidget)
         self.label_5.setGeometry(QtCore.QRect(60, 120, 111, 31))
-        self.label_5.setStyleSheet("/*background-color: #ffffff;\n"
-"\n"
-"/*border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"/*border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"/*padding: 5px;                  /* opcional: espacio interno */ \n"
-"\n"
-"font-size: 16px;\n"
-"font-weight: bold;\n"
-"color: #0b0b0b;\n"
-"font: 75 12pt \n"
-"")
+        self.label_5.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
         self.label_5.setObjectName("label_5")
         self.label_6 = QtWidgets.QLabel(self.centralwidget)
         self.label_6.setGeometry(QtCore.QRect(310, 120, 81, 31))
-        self.label_6.setStyleSheet("font-size: 16px;\n"
-"font-weight: bold;\n"
-"color: #0b0b0b;\n"
-"font: 75 12pt")
+        self.label_6.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
         self.label_6.setObjectName("label_6")
         self.label_7 = QtWidgets.QLabel(self.centralwidget)
         self.label_7.setGeometry(QtCore.QRect(540, 120, 61, 31))
-        self.label_7.setStyleSheet("font-size: 16px;\n"
-"font-weight: bold;\n"
-"color: #0b0b0b;\n"
-"font: 75 12pt")
+        self.label_7.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
         self.label_7.setObjectName("label_7")
         self.label_8 = QtWidgets.QLabel(self.centralwidget)
         self.label_8.setGeometry(QtCore.QRect(750, 120, 61, 31))
-        self.label_8.setStyleSheet("font-size: 16px;\n"
-"font-weight: bold;\n"
-"color: #0b0b0b;\n"
-"font: 75 12pt")
+        self.label_8.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
         self.label_8.setObjectName("label_8")
         self.vault_qai = QtWidgets.QLineEdit(self.centralwidget)
         self.vault_qai.setGeometry(QtCore.QRect(910, 160, 171, 151))
-        self.vault_qai.setStyleSheet("background-color: #ffffff;\n"
-"\n"
-"border: 1px solid #000000;     /* grosor, estilo y color del borde */\n"
-"border-radius: 5px;           /* opcional: esquinas redondeadas */\n"
-"padding: 5px;                  /* opcional: espacio interno */")
+        self.vault_qai.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
         self.vault_qai.setObjectName("vault_qai")
         self.label_9 = QtWidgets.QLabel(self.centralwidget)
         self.label_9.setGeometry(QtCore.QRect(980, 120, 31, 31))
-        self.label_9.setStyleSheet("font-size: 16px;\n"
-"font-weight: bold;\n"
-"color: #0b0b0b;\n"
-"font: 75 12pt")
+        self.label_9.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
         self.label_9.setObjectName("label_9")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -162,13 +111,3 @@ class Ui_MainWindow(object):
         self.label_7.setText(_translate("MainWindow", "VIENTO"))
         self.label_8.setText(_translate("MainWindow", "LLUVIA"))
         self.label_9.setText(_translate("MainWindow", "QAI"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
