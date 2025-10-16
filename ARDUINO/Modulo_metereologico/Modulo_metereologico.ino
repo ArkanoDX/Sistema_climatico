@@ -56,6 +56,17 @@ void get_wifi_credentials() {
   Serial.println(ssid);
 
   Serial.println("\nAhora, ingrese la contraseña de la red WiFi y presione Enter:");
+  /*-------------------------------------------------------------------------------
+  ---------------Salto de linea en el serial monitor-------------------------------
+  ---------------------------------------------------------------------------------*/
+  for (int i = 0; i < 91; ++i) {
+  Serial.print("-");
+  }
+  Serial.println();
+/*-------------------------------------------------------------------------------
+  ---------------Salto de linea en el serial monitor-------------------------------
+  ---------------------------------------------------------------------------------*/
+
   while (Serial.available() == 0) {}
   String pass_str = Serial.readStringUntil('\n');
   pass_str.trim();
@@ -95,6 +106,17 @@ bool wifi_connect() {
   int ip_attempts = 0;
   while (WiFi.localIP() == IPAddress(0,0,0,0) && ip_attempts < 10) {
       Serial.print("DHCP.");
+      Serial.println();
+/*-------------------------------------------------------------------------------
+---------------Salto de linea en el serial monitor-------------------------------
+---------------------------------------------------------------------------------*/
+      for (int i = 0; i < 91; ++i) {
+      Serial.print("-");
+      }
+      Serial.println();
+/*-------------------------------------------------------------------------------
+---------------Salto de linea en el serial monitor-------------------------------
+---------------------------------------------------------------------------------*/
       delay(500);
       ip_attempts++;
   }
