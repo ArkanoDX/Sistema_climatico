@@ -24,12 +24,27 @@ DHT_Unified dht(Temp_Hum_SensorPin, DHT11);
 Adafruit_BMP085 bmp;
 WiFiServer server(80);
 ArduinoLEDMatrix matrix;
-WiFiUDP udp;              // Se necesita un objeto UDP
-MDNS mdns(udp);            // El objeto MDNS se crea pasándole el UDP
+WiFiUDP udp;          // Se necesita un objeto UDP
+MDNS mdns(udp);       // El objeto MDNS se crea pasándole el UDP
 
 /*--------------------------------------------------------------------
 -------------------------Global variables----------------------------
 ----------------------------------------------------------------------*/
+
+// --- INICIO DE MODIFICACIÓN: Redes WiFi conocidas ---
+struct WifiCredential {
+  const char* ssid;
+  const char* pass;
+};
+
+// !! IMPORTANTE: RELLENA ESTOS DATOS con tus 3 redes !!
+WifiCredential knownNetworks[] = {
+  {"SSID_DE_TU_CASA", "CONTRASEÑA_CASA"},
+  {"SSID_DE_TU_OFICINA", "CONTRASEÑA_OFICINA"},
+  {"SSID_DE_TU_CELULAR", "CONTRASEÑA_CELULAR"}
+};
+// --- FIN DE MODIFICACIÓN ---
+
 const uint32_t wifi_connected[] = {0x3f840, 0x49f22084, 0xe4110040};
 const uint32_t no_wifi[] = {0x403f844, 0x49f22484, 0xe4110040};
 char ssid[64];
@@ -43,6 +58,7 @@ unsigned long lastWiFiCheck = 0;
 -----------------User Defined Functions--------------------------------
 ---------------------------------------------------------------------------*/
 
+// Esta función se mantiene igual
 void get_wifi_credentials() {
   while (Serial.available() > 0) {
     Serial.read();
@@ -60,7 +76,7 @@ void get_wifi_credentials() {
   ---------------Salto de linea en el serial monitor-------------------------------
   ---------------------------------------------------------------------------------*/
   for (int i = 0; i < 91; ++i) {
-  Serial.print("-");
+    Serial.print("-");
   }
   Serial.println();
 /*-------------------------------------------------------------------------------
@@ -74,6 +90,7 @@ void get_wifi_credentials() {
   Serial.println("Contraseña recibida. Intentando conectar...");
 }
 
+// Esta función se mantiene igual, usará las variables globales 'ssid' y 'pass'
 bool wifi_connect() {
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Error de comunicación con el módulo WiFi.");
@@ -105,43 +122,45 @@ bool wifi_connect() {
   Serial.println("\n¡Conectado a la red! Esperando dirección IP...");
   int ip_attempts = 0;
   while (WiFi.localIP() == IPAddress(0,0,0,0) && ip_attempts < 10) {
-      Serial.print("DHCP.");
-      Serial.println();
+     Serial.print("DHCP.");
+     Serial.println();
 /*-------------------------------------------------------------------------------
 ---------------Salto de linea en el serial monitor-------------------------------
 ---------------------------------------------------------------------------------*/
-      for (int i = 0; i < 91; ++i) {
-      Serial.print("-");
-      }
-      Serial.println();
+     for (int i = 0; i < 91; ++i) {
+     Serial.print("-");
+     }
+     Serial.println();
 /*-------------------------------------------------------------------------------
 ---------------Salto de linea en el serial monitor-------------------------------
 ---------------------------------------------------------------------------------*/
-      delay(500);
-      ip_attempts++;
+     delay(500);
+     ip_attempts++;
   }
 
   if (WiFi.localIP() == IPAddress(0,0,0,0)) {
-      Serial.println("\nFallo al obtener IP. La IP es 0.0.0.0");
-      matrix.loadFrame(no_wifi);
-      return false;
+     Serial.println("\nFallo al obtener IP. La IP es 0.0.0.0");
+     matrix.loadFrame(no_wifi);
+     return false;
   }
 
   matrix.loadFrame(wifi_connected);
   return true;
 }
 
+// Esta función se mantiene igual
 void wifi_reconnect() {
   Serial.println("Se perdió la conexión WiFi. Reconectando...");
   matrix.loadFrame(no_wifi);
   delay(1000);
-  if (wifi_connect()) {
+  if (wifi_connect()) { // Intentará reconectar a la *última* red exitosa
     Serial.println("\n¡Reconexión exitosa!");
     Serial.print("Nueva dirección IP: ");
     Serial.println(WiFi.localIP());
   }
 }
 
+// Esta función se mantiene igual
 void read_sensor_data() {
   sensors_event_t event;
   dht.temperature().getEvent(&event);
@@ -160,25 +179,26 @@ void read_sensor_data() {
   rainfall = digitalRead(Rain_SensorPin) == HIGH ? 0 : 1;
 }
 
+// Esta función se mantiene igual
 void send_json_data(WiFiClient &client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: application/json");
   client.println("Connection: close");
   client.println();
   String json = "{\"temperature\":" + String(temperature) +
-                ",\"humidity\":" + String(humidity) +
-                ",\"pressure\":" + String(pressure) +
-                ",\"aqi\":" + String(AQI) +
-                ",\"rainfall\":" + String(rainfall) + "}";
+           ",\"humidity\":" + String(humidity) +
+           ",\"pressure\":" + String(pressure) +
+           ",\"aqi\":" + String(AQI) +
+           ",\"rainfall\":" + String(rainfall) + "}";
   client.println(json);
 }
 
+// Esta función se mantiene igual
 void send_web_page(WiFiClient &client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
   client.println("Connection: close");
   client.println();
-
   const char* html = R"rawliteral(
 <!DOCTYPE html>
 <html lang="es">
@@ -191,11 +211,14 @@ void send_web_page(WiFiClient &client) {
         .container { max-width: 900px; margin: auto; }
         .data-container { display: flex; flex-direction: column; gap: 10px; }
         .data-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); flex: 1; margin: 5px; text-align: center; }
-        .graph { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); margin-top: 15px; }
+        .graph { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 
+8px rgba(0, 0, 0, .1); margin-top: 15px; }
         canvas { width: 100%; height: 400px; }
         .title-container { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 20px; }
-        .title-container h1 { font-size: 2rem; color: #fff; margin: 0; }
-        .title-container img { width: 80px; height: auto; }
+        .title-container h1 { font-size: 2rem;
+color: #fff; margin: 0; }
+        .title-container img { width: 80px; height: auto;
+}
     </style>
 </head>
 <body>
@@ -213,24 +236,26 @@ void send_web_page(WiFiClient &client) {
     <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
     <script>
         const ctxCombined = document.getElementById('combinedGraph').getContext('2d');
-        const combinedChart = new Chart(ctxCombined, {
+const combinedChart = new Chart(ctxCombined, {
             type: 'line', data: { labels: [], datasets: [{ label: 'Temperatura (°C)', data: [], borderColor: '#ff5733', backgroundColor: 'rgba(255, 87, 51, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }, { label: 'Humedad (%)', data: [], borderColor: '#2196f3', backgroundColor: 'rgba(33, 150, 243, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }] },
             options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { title: { display: true, text: 'Time' } }, y: { beginAtZero: true, min: 0, max: 100, ticks: { stepSize: 10 } } } }
+    
         });
         function fetchWeatherData() {
             fetch('/data').then(response => response.json()).then(data => {
-                document.getElementById('weather').innerHTML = `<div class='data-card'>🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 🌧️ Humedad: ${data.humidity}%</div><div class='data-card'>🌀 Presión: ${data.pressure} mbar</div><div class='data-card'>🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 🌨️ Lluvia: ${data.rainfall ? 'Yes' : 'No'}</div>`;
+                document.getElementById('weather').innerHTML = `<div class='data-card'>🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 🌨️ Humedad: ${data.humidity}%</div><div class='data-card'>🌀 Presión: ${data.pressure} mbar</div><div class='data-card'>🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 🌧️ Lluvia: ${data.rainfall ? 'Yes' : 'No'}</div>`;
                 let time = new Date().toLocaleTimeString();
                 combinedChart.data.labels.push(time);
                 combinedChart.data.datasets[0].data.push(data.temperature);
                 combinedChart.data.datasets[1].data.push(data.humidity);
                 if (combinedChart.data.labels.length > 10) {
+                    
                     combinedChart.data.labels.shift();
                     combinedChart.data.datasets[0].data.shift();
                     combinedChart.data.datasets[1].data.shift();
                 }
                 combinedChart.update();
-            });
+});
         }
         setInterval(fetchWeatherData, 1000);
     </script>
@@ -240,6 +265,7 @@ void send_web_page(WiFiClient &client) {
   client.print(html);
 }
 
+// Esta función se mantiene igual
 void run_local_webserver() {
   WiFiClient client = server.available();
   if (client) {
@@ -257,16 +283,56 @@ void run_local_webserver() {
 /*-----------------------------------------------------------------
 -----------------------Setup Function------------------------------
 ------------------------------------------------------------------*/
+// --- INICIO DE MODIFICACIÓN: Función setup() REESCRITA ---
 void setup() {
   Serial.begin(115200);
   while (!Serial);
   Serial.println("--- Inicio del Setup ---");
 
   matrix.begin();
-  get_wifi_credentials();
 
-  if (wifi_connect()) {
+  bool isConnected = false; // Bandera para saber si ya nos conectamos
+  int numKnownNetworks = sizeof(knownNetworks) / sizeof(knownNetworks[0]);
+
+  Serial.println("Buscando redes WiFi conocidas...");
+
+  // 1. Intentar conectar a las redes conocidas
+  for (int i = 0; i < numKnownNetworks; i++) {
+    // Copiar las credenciales del arreglo a las variables globales
+    // La función wifi_connect() usa las variables globales 'ssid' y 'pass'
+    strncpy(ssid, knownNetworks[i].ssid, sizeof(ssid));
+    strncpy(pass, knownNetworks[i].pass, sizeof(pass));
+    ssid[sizeof(ssid) - 1] = '\0'; // Asegurar que el string termine
+    pass[sizeof(pass) - 1] = '\0'; // Asegurar que el string termine
+
+    // (La función wifi_connect() ya imprime "Intentando conectar...")
+    if (wifi_connect()) {
+      isConnected = true; // ¡Éxito!
+      break;              // Salir del bucle 'for'
+    } else {
+      // Si falló, intentar con la siguiente red
+      Serial.println("... intento fallido.");
+      WiFi.disconnect(); // Limpiar para el siguiente intento
+      delay(100);
+    }
+  }
+
+  // 2. Si ninguna red conocida funcionó, pedir credenciales manualmente
+  if (!isConnected) {
+    Serial.println("\nNo se pudo conectar a ninguna red conocida.");
+    
+    // Ejecutar la porción de código que pide nombre y contraseña
+    get_wifi_credentials();
+    
+    // Intentar conectar con las credenciales dadas por el usuario
+    isConnected = wifi_connect();
+  }
+
+  // 3. Continuar con el resto del setup SÓLO SI hay conexión
+  if (isConnected) {
     Serial.println("\n¡Conexión a WiFi e IP obtenida exitosamente!");
+    Serial.print("Red conectada: ");
+    Serial.println(ssid); // Muestra a cuál red se conectó
     Serial.print("Dirección IP asignada: ");
     Serial.println(WiFi.localIP());
     Serial.print("Potencia de la señal (RSSI): ");
@@ -278,10 +344,10 @@ void setup() {
     if (!mdns.begin("sistemaclima-tecnm")) {
       Serial.println("Error al iniciar MDNS.");
     } else {
-      mdns.addServiceRecord("_http._tcp", 80, (MDNSServiceProtocol_t)1); 
+      mdns.addServiceRecord("_http._tcp", 80, (MDNSServiceProtocol_t)1);
     }
   } else {
-    Serial.println("FALLO EN LA CONEXIÓN.");
+    Serial.println("FALLO EN LA CONEXIÓN. No se pudo conectar a redes conocidas ni manuales.");
   }
 
   pinMode(Rain_SensorPin, INPUT);
@@ -289,21 +355,27 @@ void setup() {
   dht.begin();
   if (!bmp.begin()) {
     Serial.println("No se encontró el sensor BMP085, revisar conexiones.");
-  }else{
-  Serial.println("--- Setup Completado ---");}
+  } else {
+    Serial.println("--- Setup Completado ---");
+  }
 }
+// --- FIN DE MODIFICACIÓN ---
+
 
 /*-----------------------------------------------------------
 -----------------Loop function-------------------------------
 -------------------------------------------------------------*/
+// El loop se mantiene igual
 void loop() {
   // Esta librería no necesita mdns.update() en el loop
 
-  if (millis() - lastSensorUpdate >= 2000) { 
+  if (millis() - lastSensorUpdate >= 2000) {  
     lastSensorUpdate = millis();
     read_sensor_data();
   }
 
+  // Si se pierde la conexión, wifi_reconnect() intentará
+  // reconectarse a la última red exitosa (guardada en 'ssid' y 'pass')
   if (WiFi.status() != WL_CONNECTED && millis() - lastWiFiCheck >= 5000) {
     lastWiFiCheck = millis();
     wifi_reconnect();
