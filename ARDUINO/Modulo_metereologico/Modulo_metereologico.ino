@@ -31,19 +31,19 @@ MDNS mdns(udp);       // El objeto MDNS se crea pasándole el UDP
 -------------------------Global variables----------------------------
 ----------------------------------------------------------------------*/
 
-// --- INICIO DE MODIFICACIÓN: Redes WiFi conocidas ---
+// --- INICIO: Redes WiFi conocidas ---
 struct WifiCredential {
   const char* ssid;
   const char* pass;
 };
 
-// !! IMPORTANTE: RELLENA ESTOS DATOS con tus 3 redes !!
+// !! INSTANCIA PARA EL ALMANCENAMIENTO DE TRES REDES CONOCIDADAS
+//      PARA SU CONEXION AUTOMATICA !!
 WifiCredential knownNetworks[] = {
   {"SSID_DE_TU_CASA", "CONTRASEÑA_CASA"},
   {"SSID_DE_TU_OFICINA", "CONTRASEÑA_OFICINA"},
   {"SSID_DE_TU_CELULAR", "CONTRASEÑA_CELULAR"}
 };
-// --- FIN DE MODIFICACIÓN ---
 
 const uint32_t wifi_connected[] = {0x3f840, 0x49f22084, 0xe4110040};
 const uint32_t no_wifi[] = {0x403f844, 0x49f22484, 0xe4110040};
@@ -58,7 +58,6 @@ unsigned long lastWiFiCheck = 0;
 -----------------User Defined Functions--------------------------------
 ---------------------------------------------------------------------------*/
 
-// Esta función se mantiene igual
 void get_wifi_credentials() {
   while (Serial.available() > 0) {
     Serial.read();
@@ -90,7 +89,6 @@ void get_wifi_credentials() {
   Serial.println("Contraseña recibida. Intentando conectar...");
 }
 
-// Esta función se mantiene igual, usará las variables globales 'ssid' y 'pass'
 bool wifi_connect() {
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Error de comunicación con el módulo WiFi.");
@@ -118,7 +116,7 @@ bool wifi_connect() {
     return false;
   }
 
-  // --- Bloque de código añadido para esperar la IP ---
+  // --- A la espera de la IP ---
   Serial.println("\n¡Conectado a la red! Esperando dirección IP...");
   int ip_attempts = 0;
   while (WiFi.localIP() == IPAddress(0,0,0,0) && ip_attempts < 10) {
@@ -148,7 +146,7 @@ bool wifi_connect() {
   return true;
 }
 
-// Esta función se mantiene igual
+
 void wifi_reconnect() {
   Serial.println("Se perdió la conexión WiFi. Reconectando...");
   matrix.loadFrame(no_wifi);
@@ -160,7 +158,6 @@ void wifi_reconnect() {
   }
 }
 
-// Esta función se mantiene igual
 void read_sensor_data() {
   sensors_event_t event;
   dht.temperature().getEvent(&event);
@@ -179,7 +176,6 @@ void read_sensor_data() {
   rainfall = digitalRead(Rain_SensorPin) == HIGH ? 0 : 1;
 }
 
-// Esta función se mantiene igual
 void send_json_data(WiFiClient &client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: application/json");
@@ -193,7 +189,6 @@ void send_json_data(WiFiClient &client) {
   client.println(json);
 }
 
-// Esta función se mantiene igual
 void send_web_page(WiFiClient &client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
@@ -265,7 +260,6 @@ const combinedChart = new Chart(ctxCombined, {
   client.print(html);
 }
 
-// Esta función se mantiene igual
 void run_local_webserver() {
   WiFiClient client = server.available();
   if (client) {
@@ -283,7 +277,6 @@ void run_local_webserver() {
 /*-----------------------------------------------------------------
 -----------------------Setup Function------------------------------
 ------------------------------------------------------------------*/
-// --- INICIO DE MODIFICACIÓN: Función setup() REESCRITA ---
 void setup() {
   Serial.begin(115200);
   while (!Serial);
@@ -301,18 +294,16 @@ void setup() {
     // Copiar las credenciales del arreglo a las variables globales
     // La función wifi_connect() usa las variables globales 'ssid' y 'pass'
     strncpy(ssid, knownNetworks[i].ssid, sizeof(ssid));
-    strncpy(pass, knownNetworks[i].pass, sizeof(pass));
-    ssid[sizeof(ssid) - 1] = '\0'; // Asegurar que el string termine
-    pass[sizeof(pass) - 1] = '\0'; // Asegurar que el string termine
+    strncpy(pass, knownNetworks[i].pass, sizeof(pass)); 
+    ssid[sizeof(ssid) - 1] = '\0';
+    pass[sizeof(pass) - 1] = '\0';
 
-    // (La función wifi_connect() ya imprime "Intentando conectar...")
     if (wifi_connect()) {
-      isConnected = true; // ¡Éxito!
-      break;              // Salir del bucle 'for'
+      isConnected = true;
+      break;
     } else {
-      // Si falló, intentar con la siguiente red
       Serial.println("... intento fallido.");
-      WiFi.disconnect(); // Limpiar para el siguiente intento
+      WiFi.disconnect();
       delay(100);
     }
   }
@@ -359,16 +350,11 @@ void setup() {
     Serial.println("--- Setup Completado ---");
   }
 }
-// --- FIN DE MODIFICACIÓN ---
-
 
 /*-----------------------------------------------------------
 -----------------Loop function-------------------------------
 -------------------------------------------------------------*/
-// El loop se mantiene igual
 void loop() {
-  // Esta librería no necesita mdns.update() en el loop
-
   if (millis() - lastSensorUpdate >= 2000) {  
     lastSensorUpdate = millis();
     read_sensor_data();
