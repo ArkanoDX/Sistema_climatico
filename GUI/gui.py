@@ -1,129 +1,245 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+# GUI/gui.py
+# (Código de "estilo 1" limpio y listo para la lógica)
+
+import sys
+import os
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QGroupBox, QLabel, QLineEdit, QPushButton, QFrame, QSizePolicy,
+    QRadioButton)
+from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QPixmap, QIcon
+from PyQt5.QtCore import Qt
 
 
-class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1119, 765)
-        MainWindow.setAutoFillBackground(False)
-        MainWindow.setStyleSheet("background-color: #083174;")
+# --- WIDGET LED ---
+class LedRadioButton(QRadioButton):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setText("")
+        self.setCheckable(False)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._is_on = False
+        self._update_style()
 
-        self.centralwidget = QtWidgets.QWidget(MainWindow)
-        self.centralwidget.setObjectName("centralwidget")
+    def _update_style(self):
+        color = "lime" if self._is_on else "red"
+        style = f"""
+            QRadioButton::indicator {{
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                background-color: {color};
+            }}
+        """
+        self.setStyleSheet(style)
 
-        self.vault_temp = QtWidgets.QLineEdit(self.centralwidget)
-        self.vault_temp.setGeometry(QtCore.QRect(30, 160, 171, 151))
-        self.vault_temp.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_temp.setObjectName("vault_temp")
-
-        self.vault_lluv = QtWidgets.QLineEdit(self.centralwidget)
-        self.vault_lluv.setGeometry(QtCore.QRect(690, 160, 171, 151))
-        self.vault_lluv.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_lluv.setObjectName("vault_lluv")
-
-        self.vault_hum = QtWidgets.QLineEdit(self.centralwidget)
-        self.vault_hum.setGeometry(QtCore.QRect(260, 160, 171, 151))
-        self.vault_hum.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_hum.setObjectName("vault_hum")
-
-        self.vault_vien = QtWidgets.QLineEdit(self.centralwidget)
-        self.vault_vien.setGeometry(QtCore.QRect(480, 160, 171, 151))
-        self.vault_vien.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_vien.setObjectName("vault_vien")
-
-        self.graphics_View = QtWidgets.QGraphicsView(self.centralwidget)
-        self.graphics_View.setGeometry(QtCore.QRect(30, 340, 1051, 321))
-        self.graphics_View.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.graphics_View.setObjectName("graphics_View")
-
-        self.button_stop = QtWidgets.QPushButton(self.centralwidget)
-        self.button_stop.setGeometry(QtCore.QRect(1010, 700, 75, 23))
-        self.button_stop.setStyleSheet("background-color: #ffffff;")
-        self.button_stop.setObjectName("button_stop")
-
-        self.button_expo = QtWidgets.QPushButton(self.centralwidget)
-        self.button_expo.setGeometry(QtCore.QRect(910, 700, 75, 23))
-        self.button_expo.setStyleSheet("background-color: #ffffff;")
-        self.button_expo.setObjectName("button_expo")
-
-        self.label = QtWidgets.QLabel(self.centralwidget)
-        self.label.setGeometry(QtCore.QRect(60, 10, 71, 61))
-        self.label.setText("")
+    def setState(self, is_on):
+        state = bool(is_on)
+        if self._is_on != state:
+            self._is_on = state
+            self._update_style()
 
 
-        # NOTA: Asegúrate de que las rutas a tus imágenes sean correctas
-        self.label.setPixmap(QtGui.QPixmap("...\...\...\Pictures\ITQ Herramientas\LOGOS-INSTITUCIONALES-ITQ-04.png"))
-        self.label.setScaledContents(True)
-        self.label.setObjectName("label")
+# --- CLASE PRINCIPAL DE LA VENTANA ---
+class Ui_MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-        self.label_2 = QtWidgets.QLabel(self.centralwidget)
-        self.label_2.setGeometry(QtCore.QRect(530, 20, 71, 61))
-        self.label_2.setText("")
-        self.label_2.setPixmap(QtGui.QPixmap("...\...\...\Pictures/ITQ Herramientas/20181011001342_44_mascotOrig.png"))
-        self.label_2.setScaledContents(True)
-        self.label_2.setObjectName("label_2")
+        # --- Configuración de la Ventana ---
+        self.setWindowTitle("Sistema Climático ITQ")
+        self.setGeometry(100, 100, 900, 700)
+        self.setStyleSheet("background-color: #1a639a; color: white;")
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.central_widget.setStyleSheet("background-color: transparent;")
+        self.main_layout = QVBoxLayout(self.central_widget)
 
-        self.label_3 = QtWidgets.QLabel(self.centralwidget)
-        self.label_3.setGeometry(QtCore.QRect(830, 20, 241, 61))
-        self.label_3.setText("")
-        self.label_3.setPixmap(QtGui.QPixmap("...\...\...\Pictures\ITQ Herramientas\LOGO_ITQ_TECNM_BLANCO.png"))
-        self.label_3.setScaledContents(True)
-        self.label_3.setObjectName("label_3")
+        # --- Creación de Layouts ---
+        image_bar_layout = self._create_image_bar()
+        self.main_layout.addLayout(image_bar_layout)
+        sensor_boxes_layout = self._create_sensor_boxes()
+        self.main_layout.addLayout(sensor_boxes_layout)
+        legend_layout = self._create_legend()
+        self.main_layout.addLayout(legend_layout)
+        graph_groupbox = self._create_graph_area()
+        self.main_layout.addWidget(graph_groupbox)
+        bottom_bar_layout = self._create_bottom_bar()
+        self.main_layout.addLayout(bottom_bar_layout)
 
-        self.vault_fecha_hora = QtWidgets.QLabel(self.centralwidget)
-        self.vault_fecha_hora.setGeometry(QtCore.QRect(30, 670, 221, 31))
-        self.vault_fecha_hora.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_fecha_hora.setObjectName("vault_fecha_hora")
+        # --- NUEVO: Añadimos la barra de estado ---
+        self.statusBar().setStyleSheet("color: white;")
 
-        self.label_5 = QtWidgets.QLabel(self.centralwidget)
-        self.label_5.setGeometry(QtCore.QRect(60, 120, 111, 31))
-        self.label_5.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
-        self.label_5.setObjectName("label_5")
+    # --- Creación de Imágenes ---
+    def _create_image_placeholder(self, image_path):
+        label = QLabel()
+        label.setMinimumSize(120, 80)
+        label.setMaximumSize(150, 80)
+        label.setAlignment(Qt.AlignCenter)
 
-        self.label_6 = QtWidgets.QLabel(self.centralwidget)
-        self.label_6.setGeometry(QtCore.QRect(310, 120, 81, 31))
-        self.label_6.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
-        self.label_6.setObjectName("label_6")
+        if not os.path.exists(image_path):
+            print(f"Advertencia: No se pudo encontrar la imagen en {image_path}")
+            label.setText("IMG NO\nENCONTRADA")
+            label.setStyleSheet("color: yellow; border: 1px dashed yellow;")
+            return label
 
-        self.label_7 = QtWidgets.QLabel(self.centralwidget)
-        self.label_7.setGeometry(QtCore.QRect(540, 120, 61, 31))
-        self.label_7.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
-        self.label_7.setObjectName("label_7")
+        pixmap = QPixmap(image_path)
+        label.setPixmap(pixmap)
+        label.setScaledContents(True)
+        return label
 
-        self.label_8 = QtWidgets.QLabel(self.centralwidget)
-        self.label_8.setGeometry(QtCore.QRect(750, 120, 61, 31))
-        self.label_8.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
-        self.label_8.setObjectName("label_8")
+    def _create_image_bar(self):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 5, 0, 5)
+        ruta_img_izquierda = "images/LOGO_ITQ_TECNM_BLANCO.png"
+        ruta_img_centro = "images/20181011001342_44_mascotOrig.png"
+        ruta_img_derecha = "images/LOGOS-INSTITUCIONALES-ITQ-04.png"
+        img_left = self._create_image_placeholder(ruta_img_izquierda)
+        img_center = self._create_image_placeholder(ruta_img_centro)
+        img_right = self._create_image_placeholder(ruta_img_derecha)
+        layout.addWidget(img_left)
+        layout.addStretch(1)
+        layout.addWidget(img_center)
+        layout.addStretch(1)
+        layout.addWidget(img_right)
+        return layout
 
-        self.vault_qai = QtWidgets.QLineEdit(self.centralwidget)
-        self.vault_qai.setGeometry(QtCore.QRect(910, 160, 171, 151))
-        self.vault_qai.setStyleSheet("background-color: #ffffff;\nborder: 1px solid #000000;\nborder-radius: 5px;\npadding: 5px;")
-        self.vault_qai.setObjectName("vault_qai")
-        self.label_9 = QtWidgets.QLabel(self.centralwidget)
-        self.label_9.setGeometry(QtCore.QRect(980, 120, 31, 31))
-        self.label_9.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; font: 75 12pt") # Color cambiado a blanco
-        self.label_9.setObjectName("label_9")
+    # --- MÉTODO MODIFICADO ---
+    def _create_sensor_boxes(self):
+        layout = QHBoxLayout()
+        # Guardamos las ETIQUETAS de datos para poder actualizarlas
+        (temp_widget, self.temp_label) = self._create_single_sensor_box("TEMP")
+        (hum_widget, self.hum_label) = self._create_single_sensor_box("HUMEDAD")
+        (pres_widget, self.pres_label) = self._create_single_sensor_box("PRESION")
+        (qai_widget, self.qai_label) = self._create_single_sensor_box("QAI")
+        layout.addWidget(temp_widget)
+        layout.addWidget(hum_widget)
+        layout.addWidget(pres_widget)
+        layout.addWidget(qai_widget)
+        return layout
 
-        MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1119, 21))
-        self.menubar.setObjectName("menubar")
-        MainWindow.setMenuBar(self.menubar)
-        self.statusbar = QtWidgets.QStatusBar(MainWindow)
-        self.statusbar.setObjectName("statusbar")
-        MainWindow.setStatusBar(self.statusbar)
+    # --- MÉTODO MODIFICADO ---
+    def _create_single_sensor_box(self, title):
+        wrapper_widget = QWidget()
+        wrapper_layout = QVBoxLayout(wrapper_widget)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(2)
 
-        self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        title_label = QLabel(title)
+        title_label.setAlignment(Qt.AlignCenter)
+        title_font = QFont()
+        title_font.setBold(True)
+        title_font.setPointSize(12)
+        title_label.setFont(title_font)
 
-    def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Estación Meteorologica"))
-        self.button_stop.setText(_translate("MainWindow", "EXIT"))
-        self.button_expo.setText(_translate("MainWindow", "EXPORTAR"))
-        self.vault_fecha_hora.setText(_translate("MainWindow", "FECHA_HORA"))
-        self.label_5.setText(_translate("MainWindow", "TEMPERATURA"))
-        self.label_6.setText(_translate("MainWindow", "HUMEDAD"))
-        self.label_7.setText(_translate("MainWindow", "VIENTO"))
-        self.label_8.setText(_translate("MainWindow", "LLUVIA"))
-        self.label_9.setText(_translate("MainWindow", "QAI"))
+        content_box = QGroupBox("")
+
+        # Tus líneas de altura (¡perfectas!)
+        content_box.setMaximumHeight(160)
+        content_box.setMinimumHeight(140)
+
+        content_box.setStyleSheet("background-color: white; color: black;")
+
+        # --- AQUÍ ESTÁ EL CAMBIO ---
+
+        # 1. Crea el layout
+        content_layout = QVBoxLayout()
+
+        # 2. Crea la etiqueta de datos
+        data_label = QLabel("---")
+        data_font = QFont('Arial', 24, QFont.Bold)
+        data_label.setFont(data_font)
+        # Nota: setAlignment en la etiqueta solo centra horizontalmente
+        data_label.setAlignment(Qt.AlignCenter)
+        data_label.setStyleSheet("color: black;")
+
+        # 3. Añade la etiqueta al layout
+        content_layout.addWidget(data_label)
+
+        # 4. ¡LA LÍNEA MÁGICA!
+        # Esto centra todo el contenido del layout (la data_label)
+        # tanto vertical como horizontalmente.
+        content_layout.setAlignment(Qt.AlignCenter)
+
+        # --- FIN DEL CAMBIO ---
+
+        content_box.setLayout(content_layout)
+        wrapper_layout.addWidget(title_label)
+        wrapper_layout.addWidget(content_box)
+
+        return (wrapper_widget, data_label)
+
+    # --- Creación de Leyenda ---
+    def _create_legend(self):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        self.rain_indicator = LedRadioButton()
+        self.rain_indicator.setState(False)
+        hum_indicator = QFrame()
+        hum_indicator.setFixedSize(30, 15)
+        hum_indicator.setStyleSheet("background-color: blue;")
+        temp_indicator = QFrame()
+        temp_indicator.setFixedSize(30, 15)
+        temp_indicator.setStyleSheet("background-color: red;")
+        layout.addWidget(self.rain_indicator)
+        layout.addWidget(QLabel("LLUVIA"))
+        layout.addSpacing(20)
+        layout.addWidget(hum_indicator)
+        layout.addWidget(QLabel("HUMEDAD"))
+        layout.addSpacing(20)
+        layout.addWidget(temp_indicator)
+        layout.addWidget(QLabel("TEMP"))
+        layout.addStretch(1)
+        return layout
+
+    # --- Creación de Gráfica ---
+    def _create_graph_area(self):
+        graph_box = QGroupBox("GRAFICA TEMP Y HUMEDAD")
+        graph_box.setStyleSheet("background-color: white; color: black;")
+        graph_layout = QVBoxLayout()
+        placeholder_label = QLabel("AQUÍ VA LA GRÁFICA")
+        placeholder_label.setAlignment(Qt.AlignCenter)
+        placeholder_label.setStyleSheet("background-color: #eee; border: 1px solid #ccc; color: black;")
+        graph_layout.addWidget(placeholder_label)
+        graph_box.setLayout(graph_layout)
+        graph_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        return graph_box
+
+    # --- MÉTODO MODIFICADO ---
+    def _create_bottom_bar(self):
+        layout = QHBoxLayout()
+        # Widgets de tu archivo
+        self.fecha_hora_display = QLineEdit()
+        self.fecha_hora_display.setPlaceholderText("FECHA Y HORA")
+        self.fecha_hora_display.setReadOnly(True)
+        self.ip_display = QLineEdit()
+        self.ip_display.setPlaceholderText("IP DEL ARDUINO")
+        self.ip_display.setReadOnly(True)
+        self.importar_btn = QPushButton("IMPORTAR")
+        self.exit_btn = QPushButton("EXIT")
+
+        # --- NUEVO: Botón de Búsqueda ---
+        self.search_btn = QPushButton("BUSCAR IP")
+
+        # Estilos de tu archivo
+        style_sheet = """
+            QLineEdit { background-color: white; color: black; }
+            QPushButton { background-color: #eee; color: black; }
+        """
+        self.fecha_hora_display.setStyleSheet(style_sheet)
+        self.ip_display.setStyleSheet(style_sheet)
+        self.importar_btn.setStyleSheet(style_sheet)
+        self.exit_btn.setStyleSheet(style_sheet)
+
+        # Aplicamos estilo al nuevo botón
+        self.search_btn.setStyleSheet(style_sheet)
+
+        self.exit_btn.clicked.connect(self.close)
+
+        # Layout (modificado para añadir el nuevo botón)
+        layout.addWidget(self.fecha_hora_display)
+        layout.addWidget(self.ip_display)
+        layout.addStretch(1)
+        layout.addWidget(self.search_btn)  # Botón añadido
+        layout.addWidget(self.importar_btn)
+        layout.addWidget(self.exit_btn)
+        return layout

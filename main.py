@@ -1,19 +1,17 @@
 # main.py
+# (Lógica modificada para iniciar la búsqueda manualmente)
+
 import sys
 import time
 import requests
 import socket
-# NUEVO: Importamos el QInputDialog para pedir la IP
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QInputDialog
-
+from PyQt5.QtWidgets import QInputDialog, QApplication
 from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
-
-# Importamos la clase del diseño desde tu archivo gui.py
 from GUI.gui import Ui_MainWindow
 
 
-# --- CLASES PARA DESCUBRIR EL ARDUINO EN LA RED (Sin cambios) ---
+# --- PARTE 1: LÓGICA DE DETECCIÓN AUTOMÁTICA (Sin cambios) ---
 class ArduinoListener(ServiceListener):
     def __init__(self):
         self.arduino_info = None
@@ -24,6 +22,7 @@ class ArduinoListener(ServiceListener):
             if info:
                 ip_address = socket.inet_ntoa(info.addresses[0])
                 self.arduino_info = {"ip": ip_address}
+                print(f"[Discovery] Arduino encontrado en: {ip_address}")
 
     def update_service(self, zc, type_, name):
         pass
@@ -47,7 +46,7 @@ class DiscoveryWorker(QtCore.QObject):
         self.finished.emit()
 
 
-# --- EL HILO TRABAJADOR QUE OBTIENE DATOS (Sin cambios) ---
+# --- PARTE 2: LÓGICA DEL WORKER DE DATOS (Sin cambios) ---
 class ArduinoWorker(QtCore.QObject):
     temperatura_actualizada = QtCore.pyqtSignal(float)
     humedad_actualizada = QtCore.pyqtSignal(float)
@@ -66,94 +65,122 @@ class ArduinoWorker(QtCore.QObject):
         while self.is_running:
             try:
                 response = requests.get(self.arduino_url, timeout=2.5)
+                response.raise_for_status()
                 data = response.json()
                 self.temperatura_actualizada.emit(data['temperature'])
                 self.humedad_actualizada.emit(data['humidity'])
                 self.presion_actualizada.emit(data['pressure'])
                 self.aqi_actualizado.emit(data['aqi'])
                 self.lluvia_actualizada.emit(data['rainfall'])
+                time.sleep(1)
             except Exception as e:
-                self.error_ocurrido.emit("Error de conexión con el Arduino")
+                print(f"[ArduinoWorker Error]: {e}")
+                self.error_ocurrido.emit(f"Error: {type(e).__name__}")
                 time.sleep(5)
-            time.sleep(1)
         self.finished.emit()
 
     def stop(self):
         self.is_running = False
 
 
-# --- LA CLASE PRINCIPAL DE LA APLICACIÓN (EL CEREBRO) ---------
-class EstacionApp(QtWidgets.QMainWindow):
+# --- PARTE 3: LA APLICACIÓN PRINCIPAL (MODIFICADA) ---
+class EstacionApp(Ui_MainWindow):
     def __init__(self):
         super().__init__()
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
+
         self.arduino_ip = None
         self.data_thread = None
-        self.configurar_ui_adicional()
+
         self.iniciar_timer_reloj()
-        self.iniciar_busqueda_arduino()
 
-    def configurar_ui_adicional(self):
-        font = QtGui.QFont('Arial', 24, QtGui.QFont.Bold)
-        widgets = [self.ui.vault_temp, self.ui.vault_hum, self.ui.vault_vien, self.ui.vault_lluv, self.ui.vault_qai]
-        for widget in widgets:
-            widget.setFont(font)
-            widget.setReadOnly(True)
-            widget.setAlignment(QtCore.Qt.AlignCenter)
-        self.ui.button_stop.clicked.connect(self.close)
+        # --- CAMBIO PRINCIPAL ---
+        # NO iniciamos la búsqueda automáticamente
+        # self.iniciar_busqueda_arduino()
 
+        # Conectamos el nuevo botón a la función de búsqueda
+        self.search_btn.clicked.connect(self.iniciar_busqueda_arduino)
+        self.statusBar().showMessage("Listo. Presione 'BUSCAR IP' para conectar.")
+        # --- FIN DEL CAMBIO ---
+
+    # --- MÉTODO MODIFICADO ---
     def iniciar_busqueda_arduino(self):
-        self.ui.statusbar.showMessage("Buscando Arduino en la red...")
+        """Inicia el hilo DiscoveryWorker"""
+        # Deshabilitar el botón para evitar doble clic
+        self.search_btn.setEnabled(False)
+        self.search_btn.setText("Buscando...")
+        self.statusBar().showMessage("Buscando Arduino en la red...")
+
         self.discovery_thread = QtCore.QThread()
         self.discovery_worker = DiscoveryWorker()
         self.discovery_worker.moveToThread(self.discovery_thread)
+
         self.discovery_thread.started.connect(self.discovery_worker.run)
         self.discovery_worker.found.connect(self.on_discovery_complete)
         self.discovery_worker.finished.connect(self.discovery_thread.quit)
         self.discovery_worker.finished.connect(self.discovery_worker.deleteLater)
         self.discovery_thread.finished.connect(self.discovery_thread.deleteLater)
+
         self.discovery_thread.start()
 
-    # --- MÉTODO MODIFICADO PARA INCLUIR EL FALLBACK ---
+    # --- MÉTODO MODIFICADO ---
     def on_discovery_complete(self, arduino_info):
+        """
+        Este método se activa cuando el DiscoveryWorker termina.
+        """
         if arduino_info:
             self.arduino_ip = arduino_info['ip']
-            self.ui.statusbar.showMessage(f"¡Arduino encontrado en {self.arduino_ip}! Conectando...")
+            self.statusBar().showMessage(f"¡Arduino encontrado en {self.arduino_ip}! Conectando...")
+            self.ip_display.setText(self.arduino_ip)
             self.iniciar_hilo_trabajador()
+            # Si tiene éxito, el botón "Buscar IP" queda deshabilitado,
+            # lo cual está bien porque ya encontramos la IP.
         else:
-            self.ui.statusbar.showMessage("No se encontró el Arduino automáticamente. Por favor, ingrese la IP.")
-            # Si la búsqueda automática falla, llamamos al nuevo método manual
-            self.solicitar_ip_manualmente()
+            self.statusBar().showMessage("No se encontró el Arduino automáticamente. Por favor, ingrese la IP.")
+            # Reactivamos el botón por si el usuario quiere reintentar
+            self.search_btn.setEnabled(True)
+            self.search_btn.setText("BUSCAR IP")
+            self.solicitar_ip_manualmente()  # Pedimos la IP
 
-    # --- NUEVO MÉTODO PARA PEDIR LA IP MANUALMENTE ---
+    # --- MÉTODO MODIFICADO ---
     def solicitar_ip_manualmente(self):
-        # Abre una pequeña ventana de diálogo para que el usuario escriba la IP
+        """
+        Este es el FALLBACK manual.
+        """
         ip, ok = QInputDialog.getText(self, 'IP del Arduino',
                                       'No se encontró el Arduino.\nPor favor, ingrese la dirección IP:')
-
-        # Si el usuario escribió algo y le dio "OK"
         if ok and ip:
             self.arduino_ip = ip
-            self.ui.statusbar.showMessage(f"Intentando conectar con {self.arduino_ip}...")
+            self.statusBar().showMessage(f"Intentando conectar con {self.arduino_ip}...")
+            self.ip_display.setText(self.arduino_ip)
             self.iniciar_hilo_trabajador()
+            # Dejamos el botón de búsqueda deshabilitado
+            # porque ya estamos intentando una conexión manual.
         else:
-            self.ui.statusbar.showMessage("Operación cancelada. No se puede conectar sin IP.")
+            self.statusBar().showMessage("Operación cancelada.")
+            # Reactivamos el botón si el usuario cancela
+            self.search_btn.setEnabled(True)
+            self.search_btn.setText("BUSCAR IP")
 
     def iniciar_hilo_trabajador(self):
+        """
+        Inicia el worker que pide los datos.
+        """
         self.data_thread = QtCore.QThread()
         self.data_worker = ArduinoWorker(arduino_ip=self.arduino_ip)
         self.data_worker.moveToThread(self.data_thread)
+
         self.data_thread.started.connect(self.data_worker.run)
         self.data_worker.temperatura_actualizada.connect(self.actualizar_temp)
         self.data_worker.humedad_actualizada.connect(self.actualizar_hum)
-        self.data_worker.presion_actualizada.connect(self.actualizar_vien)
+        self.data_worker.presion_actualizada.connect(self.actualizar_presion)
         self.data_worker.lluvia_actualizada.connect(self.actualizar_lluv)
         self.data_worker.aqi_actualizado.connect(self.actualizar_qai)
         self.data_worker.error_ocurrido.connect(self.mostrar_error)
+
         self.data_worker.finished.connect(self.data_thread.quit)
         self.data_worker.finished.connect(self.data_worker.deleteLater)
         self.data_thread.finished.connect(self.data_thread.deleteLater)
+
         self.data_thread.start()
 
     def iniciar_timer_reloj(self):
@@ -162,27 +189,28 @@ class EstacionApp(QtWidgets.QMainWindow):
         self.timer.start(1000)
         self.actualizar_reloj()
 
+    # --- SLOTS DE ACTUALIZACIÓN (Sin cambios) ---
     def actualizar_temp(self, temp):
-        self.ui.vault_temp.setText(f"{temp:.1f}°C")
+        self.temp_label.setText(f"{temp:.1f}°C")
 
     def actualizar_hum(self, hum):
-        self.ui.vault_hum.setText(f"{hum:.1f}%")
+        self.hum_label.setText(f"{hum:.1f}%")
 
-    def actualizar_vien(self, presion):
-        self.ui.vault_vien.setText(f"{presion:.1f} mbar")
+    def actualizar_presion(self, presion):
+        self.pres_label.setText(f"{presion:.1f} mbar")
 
     def actualizar_lluv(self, estado_lluvia):
-        self.ui.vault_lluv.setText("Sí" if estado_lluvia == 1 else "No")
+        self.rain_indicator.setState(estado_lluvia)
 
     def actualizar_qai(self, qai):
-        self.ui.vault_qai.setText(str(qai))
+        self.qai_label.setText(str(qai))
 
     def actualizar_reloj(self):
         now = QtCore.QDateTime.currentDateTime()
-        self.ui.vault_fecha_hora.setText(now.toString("dd-MM-yyyy hh:mm:ss ap"))
+        self.fecha_hora_display.setText(now.toString("dd-MM-yyyy hh:mm:ss ap"))
 
     def mostrar_error(self, mensaje):
-        self.ui.statusbar.showMessage(mensaje)
+        self.statusBar().showMessage(mensaje)
 
     def closeEvent(self, event):
         if self.data_thread and self.data_thread.isRunning():
@@ -192,9 +220,10 @@ class EstacionApp(QtWidgets.QMainWindow):
         event.accept()
 
 
-# --- PUNTO DE ENTRADA DE LA APLICACIÓN ---
+# --- PARTE 4: PUNTO DE ENTRADA (Sin cambios) ---
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     window = EstacionApp()
     window.show()
     sys.exit(app.exec_())
