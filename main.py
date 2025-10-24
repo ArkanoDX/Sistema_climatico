@@ -1,5 +1,5 @@
 # main.py
-# (Lógica modificada para iniciar la búsqueda manualmente)
+# (Modificado para lógica de historial)
 
 import sys
 import time
@@ -11,7 +11,7 @@ from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from GUI.gui import Ui_MainWindow
 
 
-# --- PARTE 1: LÓGICA DE DETECCIÓN AUTOMÁTICA (Sin cambios) ---
+# --- PARTE 1: LÓGICA DE DETECCIÓN (Sin cambios) ---
 class ArduinoListener(ServiceListener):
     def __init__(self):
         self.arduino_info = None
@@ -72,6 +72,7 @@ class ArduinoWorker(QtCore.QObject):
                 self.presion_actualizada.emit(data['pressure'])
                 self.aqi_actualizado.emit(data['aqi'])
                 self.lluvia_actualizada.emit(data['rainfall'])
+                # El time.sleep(1) coincide con tu petición de 1 segundo
                 time.sleep(1)
             except Exception as e:
                 print(f"[ArduinoWorker Error]: {e}")
@@ -93,19 +94,10 @@ class EstacionApp(Ui_MainWindow):
 
         self.iniciar_timer_reloj()
 
-        # --- CAMBIO PRINCIPAL ---
-        # NO iniciamos la búsqueda automáticamente
-        # self.iniciar_busqueda_arduino()
-
-        # Conectamos el nuevo botón a la función de búsqueda
         self.search_btn.clicked.connect(self.iniciar_busqueda_arduino)
         self.statusBar().showMessage("Listo. Presione 'BUSCAR IP' para conectar.")
-        # --- FIN DEL CAMBIO ---
 
-    # --- MÉTODO MODIFICADO ---
     def iniciar_busqueda_arduino(self):
-        """Inicia el hilo DiscoveryWorker"""
-        # Deshabilitar el botón para evitar doble clic
         self.search_btn.setEnabled(False)
         self.search_btn.setText("Buscando...")
         self.statusBar().showMessage("Buscando Arduino en la red...")
@@ -122,30 +114,19 @@ class EstacionApp(Ui_MainWindow):
 
         self.discovery_thread.start()
 
-    # --- MÉTODO MODIFICADO ---
     def on_discovery_complete(self, arduino_info):
-        """
-        Este método se activa cuando el DiscoveryWorker termina.
-        """
         if arduino_info:
             self.arduino_ip = arduino_info['ip']
             self.statusBar().showMessage(f"¡Arduino encontrado en {self.arduino_ip}! Conectando...")
             self.ip_display.setText(self.arduino_ip)
             self.iniciar_hilo_trabajador()
-            # Si tiene éxito, el botón "Buscar IP" queda deshabilitado,
-            # lo cual está bien porque ya encontramos la IP.
         else:
             self.statusBar().showMessage("No se encontró el Arduino automáticamente. Por favor, ingrese la IP.")
-            # Reactivamos el botón por si el usuario quiere reintentar
             self.search_btn.setEnabled(True)
             self.search_btn.setText("BUSCAR IP")
-            self.solicitar_ip_manualmente()  # Pedimos la IP
+            self.solicitar_ip_manualmente()
 
-    # --- MÉTODO MODIFICADO ---
     def solicitar_ip_manualmente(self):
-        """
-        Este es el FALLBACK manual.
-        """
         ip, ok = QInputDialog.getText(self, 'IP del Arduino',
                                       'No se encontró el Arduino.\nPor favor, ingrese la dirección IP:')
         if ok and ip:
@@ -153,18 +134,12 @@ class EstacionApp(Ui_MainWindow):
             self.statusBar().showMessage(f"Intentando conectar con {self.arduino_ip}...")
             self.ip_display.setText(self.arduino_ip)
             self.iniciar_hilo_trabajador()
-            # Dejamos el botón de búsqueda deshabilitado
-            # porque ya estamos intentando una conexión manual.
         else:
             self.statusBar().showMessage("Operación cancelada.")
-            # Reactivamos el botón si el usuario cancela
             self.search_btn.setEnabled(True)
             self.search_btn.setText("BUSCAR IP")
 
     def iniciar_hilo_trabajador(self):
-        """
-        Inicia el worker que pide los datos.
-        """
         self.data_thread = QtCore.QThread()
         self.data_worker = ArduinoWorker(arduino_ip=self.arduino_ip)
         self.data_worker.moveToThread(self.data_thread)
@@ -189,25 +164,53 @@ class EstacionApp(Ui_MainWindow):
         self.timer.start(1000)
         self.actualizar_reloj()
 
-    # --- SLOTS DE ACTUALIZACIÓN (Sin cambios) ---
+    # --- NUEVO: Función de lógica de historial ---
+    def actualizar_sensor(self, sensor_name, nuevo_valor_str):
+        """
+        Mueve los textos de las etiquetas hacia arriba y
+        establece el nuevo valor en la posición 1 (en vivo).
+        """
+        try:
+            # Obtiene la lista de [pos1, pos2, pos3, pos4] para este sensor
+            labels = self.sensor_labels[sensor_name]
+
+            # Mueve pos3 -> pos4
+            labels[3].setText(labels[2].text())
+            # Mueve pos2 -> pos3
+            labels[2].setText(labels[1].text())
+            # Mueve pos1 -> pos2
+            labels[1].setText(labels[0].text())
+            # Establece el nuevo valor en pos1 (en vivo)
+            labels[0].setText(nuevo_valor_str)
+
+        except KeyError:
+            print(f"Error: No se encontró la clave del sensor '{sensor_name}'")
+        except Exception as e:
+            print(f"Error al actualizar sensor: {e}")
+
+    # --- SLOTS DE ACTUALIZACIÓN (MODIFICADOS) ---
+    # Ahora llaman a la nueva función 'actualizar_sensor'
+
     def actualizar_temp(self, temp):
-        self.temp_label.setText(f"{temp:.1f}°C")
+        self.actualizar_sensor('temp', f"{temp:.1f}°C")
 
     def actualizar_hum(self, hum):
-        self.hum_label.setText(f"{hum:.1f}%")
+        self.actualizar_sensor('hum', f"{hum:.1f}%")
 
     def actualizar_presion(self, presion):
-        self.pres_label.setText(f"{presion:.1f} mbar")
+        self.actualizar_sensor('pres', f"{presion:.1f} mbar")
 
     def actualizar_lluv(self, estado_lluvia):
+        # El LED se sigue actualizando por separado
         self.rain_indicator.setState(estado_lluvia)
 
     def actualizar_qai(self, qai):
-        self.qai_label.setText(str(qai))
+        self.actualizar_sensor('qai', str(qai))
 
     def actualizar_reloj(self):
         now = QtCore.QDateTime.currentDateTime()
-        self.fecha_hora_display.setText(now.toString("dd-MM-yyyy hh:mm:ss ap"))
+        formato_deseado = "dd/MM/yy - hh:mm ap"
+        self.fecha_hora_display.setText(now.toString(formato_deseado))
 
     def mostrar_error(self, mensaje):
         self.statusBar().showMessage(mensaje)
