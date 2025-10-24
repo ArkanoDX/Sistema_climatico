@@ -1,5 +1,5 @@
 # GUI/gui.py
-# (Código de "estilo 1" limpio y listo para la lógica)
+# (Modificado para historial de 4 etiquetas)
 
 import sys
 import os
@@ -11,7 +11,7 @@ from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QPixmap, QIcon
 from PyQt5.QtCore import Qt
 
 
-# --- WIDGET LED ---
+# --- WIDGET LED (Sin cambios) ---
 class LedRadioButton(QRadioButton):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,7 +45,9 @@ class Ui_MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # --- Configuración de la Ventana ---
+        # --- NUEVO: Diccionario para guardar las etiquetas ---
+        self.sensor_labels = {}
+
         self.setWindowTitle("Sistema Climático ITQ")
         self.setGeometry(100, 100, 900, 700)
         self.setStyleSheet("background-color: #1a639a; color: white;")
@@ -54,7 +56,6 @@ class Ui_MainWindow(QMainWindow):
         self.central_widget.setStyleSheet("background-color: transparent;")
         self.main_layout = QVBoxLayout(self.central_widget)
 
-        # --- Creación de Layouts ---
         image_bar_layout = self._create_image_bar()
         self.main_layout.addLayout(image_bar_layout)
         sensor_boxes_layout = self._create_sensor_boxes()
@@ -66,22 +67,18 @@ class Ui_MainWindow(QMainWindow):
         bottom_bar_layout = self._create_bottom_bar()
         self.main_layout.addLayout(bottom_bar_layout)
 
-        # --- NUEVO: Añadimos la barra de estado ---
         self.statusBar().setStyleSheet("color: white;")
 
-    # --- Creación de Imágenes ---
     def _create_image_placeholder(self, image_path):
         label = QLabel()
         label.setMinimumSize(120, 80)
         label.setMaximumSize(150, 80)
         label.setAlignment(Qt.AlignCenter)
-
         if not os.path.exists(image_path):
             print(f"Advertencia: No se pudo encontrar la imagen en {image_path}")
             label.setText("IMG NO\nENCONTRADA")
             label.setStyleSheet("color: yellow; border: 1px dashed yellow;")
             return label
-
         pixmap = QPixmap(image_path)
         label.setPixmap(pixmap)
         label.setScaledContents(True)
@@ -106,11 +103,12 @@ class Ui_MainWindow(QMainWindow):
     # --- MÉTODO MODIFICADO ---
     def _create_sensor_boxes(self):
         layout = QHBoxLayout()
-        # Guardamos las ETIQUETAS de datos para poder actualizarlas
-        (temp_widget, self.temp_label) = self._create_single_sensor_box("TEMP")
-        (hum_widget, self.hum_label) = self._create_single_sensor_box("HUMEDAD")
-        (pres_widget, self.pres_label) = self._create_single_sensor_box("PRESION")
-        (qai_widget, self.qai_label) = self._create_single_sensor_box("QAI")
+        # Ahora almacenamos las 4 etiquetas de cada sensor en el diccionario
+        (temp_widget, self.sensor_labels['temp']) = self._create_single_sensor_box("TEMP")
+        (hum_widget, self.sensor_labels['hum']) = self._create_single_sensor_box("HUMEDAD")
+        (pres_widget, self.sensor_labels['pres']) = self._create_single_sensor_box("PRESION")
+        (qai_widget, self.sensor_labels['qai']) = self._create_single_sensor_box("QAI")
+
         layout.addWidget(temp_widget)
         layout.addWidget(hum_widget)
         layout.addWidget(pres_widget)
@@ -132,43 +130,58 @@ class Ui_MainWindow(QMainWindow):
         title_label.setFont(title_font)
 
         content_box = QGroupBox("")
-
-        # Tus líneas de altura (¡perfectas!)
-        content_box.setMaximumHeight(160)
+        content_box.setMaximumHeight(160)  # Mantenemos tu ajuste de altura
         content_box.setMinimumHeight(140)
-
         content_box.setStyleSheet("background-color: white; color: black;")
 
-        # --- AQUÍ ESTÁ EL CAMBIO ---
-
-        # 1. Crea el layout
         content_layout = QVBoxLayout()
 
-        # 2. Crea la etiqueta de datos
-        data_label = QLabel("---")
-        data_font = QFont('Arial', 24, QFont.Bold)
-        data_label.setFont(data_font)
-        # Nota: setAlignment en la etiqueta solo centra horizontalmente
-        data_label.setAlignment(Qt.AlignCenter)
-        data_label.setStyleSheet("color: black;")
+        # --- NUEVO: Creamos las 4 etiquetas de historial ---
 
-        # 3. Añade la etiqueta al layout
-        content_layout.addWidget(data_label)
+        # Fuente para el historial (pos 2, 3, 4)
+        history_font = QFont('Arial', 18)
 
-        # 4. ¡LA LÍNEA MÁGICA!
-        # Esto centra todo el contenido del layout (la data_label)
-        # tanto vertical como horizontalmente.
-        content_layout.setAlignment(Qt.AlignCenter)
+        # Fuente para la lectura en vivo (pos 1)
+        live_font = QFont('Arial', 29, QFont.Bold)
 
-        # --- FIN DEL CAMBIO ---
+        # Posición 4 (Arriba)
+        label_pos4 = QLabel("")  # Inicia vacío
+        label_pos4.setFont(history_font)
+        label_pos4.setAlignment(Qt.AlignCenter)
+
+        # Posición 3
+        label_pos3 = QLabel("")  # Inicia vacío
+        label_pos3.setFont(history_font)
+        label_pos3.setAlignment(Qt.AlignCenter)
+
+        # Posición 2
+        label_pos2 = QLabel("")  # Inicia vacío
+        label_pos2.setFont(history_font)
+        label_pos2.setAlignment(Qt.AlignCenter)
+
+        # Posición 1 (Abajo, en vivo)
+        label_pos1 = QLabel("---")  # Texto inicial
+        label_pos1.setFont(live_font)
+        label_pos1.setAlignment(Qt.AlignCenter)
+
+        # Añadimos las etiquetas al layout en orden (de arriba a abajo)
+        content_layout.addWidget(label_pos4)
+        content_layout.addWidget(label_pos3)
+        content_layout.addWidget(label_pos2)
+        content_layout.addWidget(label_pos1)
+
+        # --- FIN DE LA MODIFICACIÓN ---
 
         content_box.setLayout(content_layout)
         wrapper_layout.addWidget(title_label)
         wrapper_layout.addWidget(content_box)
 
-        return (wrapper_widget, data_label)
+        # Devolvemos el widget Y la LISTA de etiquetas
+        # [0]=vivo, [1]=hist1, [2]=hist2, [3]=hist3
+        labels_list = [label_pos1, label_pos2, label_pos3, label_pos4]
 
-    # --- Creación de Leyenda ---
+        return (wrapper_widget, labels_list)
+
     def _create_legend(self):
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -191,7 +204,6 @@ class Ui_MainWindow(QMainWindow):
         layout.addStretch(1)
         return layout
 
-    # --- Creación de Gráfica ---
     def _create_graph_area(self):
         graph_box = QGroupBox("GRAFICA TEMP Y HUMEDAD")
         graph_box.setStyleSheet("background-color: white; color: black;")
@@ -204,10 +216,8 @@ class Ui_MainWindow(QMainWindow):
         graph_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         return graph_box
 
-    # --- MÉTODO MODIFICADO ---
     def _create_bottom_bar(self):
         layout = QHBoxLayout()
-        # Widgets de tu archivo
         self.fecha_hora_display = QLineEdit()
         self.fecha_hora_display.setPlaceholderText("FECHA Y HORA")
         self.fecha_hora_display.setReadOnly(True)
@@ -216,11 +226,8 @@ class Ui_MainWindow(QMainWindow):
         self.ip_display.setReadOnly(True)
         self.importar_btn = QPushButton("IMPORTAR")
         self.exit_btn = QPushButton("EXIT")
-
-        # --- NUEVO: Botón de Búsqueda ---
         self.search_btn = QPushButton("BUSCAR IP")
 
-        # Estilos de tu archivo
         style_sheet = """
             QLineEdit { background-color: white; color: black; }
             QPushButton { background-color: #eee; color: black; }
@@ -229,17 +236,14 @@ class Ui_MainWindow(QMainWindow):
         self.ip_display.setStyleSheet(style_sheet)
         self.importar_btn.setStyleSheet(style_sheet)
         self.exit_btn.setStyleSheet(style_sheet)
-
-        # Aplicamos estilo al nuevo botón
         self.search_btn.setStyleSheet(style_sheet)
 
         self.exit_btn.clicked.connect(self.close)
 
-        # Layout (modificado para añadir el nuevo botón)
         layout.addWidget(self.fecha_hora_display)
         layout.addWidget(self.ip_display)
         layout.addStretch(1)
-        layout.addWidget(self.search_btn)  # Botón añadido
+        layout.addWidget(self.search_btn)
         layout.addWidget(self.importar_btn)
         layout.addWidget(self.exit_btn)
         return layout
