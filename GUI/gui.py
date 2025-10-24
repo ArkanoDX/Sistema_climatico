@@ -1,5 +1,5 @@
 # GUI/gui.py
-# (Modificado para historial de 4 etiquetas)
+# (Modificado para incluir un PlotWidget de PyQtGraph)
 
 import sys
 import os
@@ -9,6 +9,11 @@ from PyQt5.QtWidgets import (
     QRadioButton)
 from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QPixmap, QIcon
 from PyQt5.QtCore import Qt
+import pyqtgraph as pg  # <-- 1. Importar PyQtGraph
+
+# Configuración global para que los gráficos tengan fondo blanco
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 
 # --- WIDGET LED (Sin cambios) ---
@@ -45,7 +50,6 @@ class Ui_MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # --- NUEVO: Diccionario para guardar las etiquetas ---
         self.sensor_labels = {}
 
         self.setWindowTitle("Sistema Climático ITQ")
@@ -62,12 +66,14 @@ class Ui_MainWindow(QMainWindow):
         self.main_layout.addLayout(sensor_boxes_layout)
         legend_layout = self._create_legend()
         self.main_layout.addLayout(legend_layout)
-        graph_groupbox = self._create_graph_area()
+        graph_groupbox = self._create_graph_area()  # <-- 2. Llamamos al método modificado
         self.main_layout.addWidget(graph_groupbox)
         bottom_bar_layout = self._create_bottom_bar()
         self.main_layout.addLayout(bottom_bar_layout)
 
         self.statusBar().setStyleSheet("color: white;")
+
+    # --- (Métodos _create_image... y _create_sensor... sin cambios) ---
 
     def _create_image_placeholder(self, image_path):
         label = QLabel()
@@ -100,22 +106,18 @@ class Ui_MainWindow(QMainWindow):
         layout.addWidget(img_right)
         return layout
 
-    # --- MÉTODO MODIFICADO ---
     def _create_sensor_boxes(self):
         layout = QHBoxLayout()
-        # Ahora almacenamos las 4 etiquetas de cada sensor en el diccionario
         (temp_widget, self.sensor_labels['temp']) = self._create_single_sensor_box("TEMP")
         (hum_widget, self.sensor_labels['hum']) = self._create_single_sensor_box("HUMEDAD")
         (pres_widget, self.sensor_labels['pres']) = self._create_single_sensor_box("PRESION")
         (qai_widget, self.sensor_labels['qai']) = self._create_single_sensor_box("QAI")
-
         layout.addWidget(temp_widget)
         layout.addWidget(hum_widget)
         layout.addWidget(pres_widget)
         layout.addWidget(qai_widget)
         return layout
 
-    # --- MÉTODO MODIFICADO ---
     def _create_single_sensor_box(self, title):
         wrapper_widget = QWidget()
         wrapper_layout = QVBoxLayout(wrapper_widget)
@@ -130,54 +132,40 @@ class Ui_MainWindow(QMainWindow):
         title_label.setFont(title_font)
 
         content_box = QGroupBox("")
-        content_box.setMaximumHeight(160)  # Mantenemos tu ajuste de altura
+        content_box.setMaximumHeight(160)
         content_box.setMinimumHeight(140)
         content_box.setStyleSheet("background-color: white; color: black;")
 
         content_layout = QVBoxLayout()
 
-        # --- NUEVO: Creamos las 4 etiquetas de historial ---
-
-        # Fuente para el historial (pos 2, 3, 4)
         history_font = QFont('Arial', 18)
+        live_font = QFont('Arial', 24, QFont.Bold)
 
-        # Fuente para la lectura en vivo (pos 1)
-        live_font = QFont('Arial', 29, QFont.Bold)
-
-        # Posición 4 (Arriba)
-        label_pos4 = QLabel("")  # Inicia vacío
+        label_pos4 = QLabel("")
         label_pos4.setFont(history_font)
         label_pos4.setAlignment(Qt.AlignCenter)
 
-        # Posición 3
-        label_pos3 = QLabel("")  # Inicia vacío
+        label_pos3 = QLabel("")
         label_pos3.setFont(history_font)
         label_pos3.setAlignment(Qt.AlignCenter)
 
-        # Posición 2
-        label_pos2 = QLabel("")  # Inicia vacío
+        label_pos2 = QLabel("")
         label_pos2.setFont(history_font)
         label_pos2.setAlignment(Qt.AlignCenter)
 
-        # Posición 1 (Abajo, en vivo)
-        label_pos1 = QLabel("---")  # Texto inicial
+        label_pos1 = QLabel("---")
         label_pos1.setFont(live_font)
         label_pos1.setAlignment(Qt.AlignCenter)
 
-        # Añadimos las etiquetas al layout en orden (de arriba a abajo)
         content_layout.addWidget(label_pos4)
         content_layout.addWidget(label_pos3)
         content_layout.addWidget(label_pos2)
         content_layout.addWidget(label_pos1)
 
-        # --- FIN DE LA MODIFICACIÓN ---
-
         content_box.setLayout(content_layout)
         wrapper_layout.addWidget(title_label)
         wrapper_layout.addWidget(content_box)
 
-        # Devolvemos el widget Y la LISTA de etiquetas
-        # [0]=vivo, [1]=hist1, [2]=hist2, [3]=hist3
         labels_list = [label_pos1, label_pos2, label_pos3, label_pos4]
 
         return (wrapper_widget, labels_list)
@@ -197,25 +185,62 @@ class Ui_MainWindow(QMainWindow):
         layout.addWidget(QLabel("LLUVIA"))
         layout.addSpacing(20)
         layout.addWidget(hum_indicator)
-        layout.addWidget(QLabel("HUMEDAD"))
+        layout.addWidget(QLabel("HUMEDAD (%)"))
         layout.addSpacing(20)
         layout.addWidget(temp_indicator)
-        layout.addWidget(QLabel("TEMP"))
+        layout.addWidget(QLabel("TEMP (°C)"))
         layout.addStretch(1)
         return layout
 
+    # --- 3. MÉTODO MODIFICADO ---
     def _create_graph_area(self):
-        graph_box = QGroupBox("GRAFICA TEMP Y HUMEDAD")
+        """Crea el QGroupBox y el PlotWidget para la gráfica."""
+
+        # El QGroupBox sigue siendo el contenedor blanco
+        graph_box = QGroupBox("")
         graph_box.setStyleSheet("background-color: white; color: black;")
+
         graph_layout = QVBoxLayout()
-        placeholder_label = QLabel("AQUÍ VA LA GRÁFICA")
-        placeholder_label.setAlignment(Qt.AlignCenter)
-        placeholder_label.setStyleSheet("background-color: #eee; border: 1px solid #ccc; color: black;")
-        graph_layout.addWidget(placeholder_label)
+
+        # --- REEMPLAZAMOS EL QLABEL ---
+        # placeholder_label = QLabel("AQUÍ VA LA GRÁFICA")
+
+        # Creamos el widget de gráfica
+        self.plot_widget = pg.PlotWidget()
+
+        # --- Configuramos el gráfico ---
+        self.plot_widget.setLabel('left', 'Valor')
+        self.plot_widget.setLabel('bottom', 'Tiempo (lecturas)')
+        self.plot_widget.addLegend()
+        self.plot_widget.showGrid(x=True, y=True)
+
+        # Creamos las líneas (curvas) y las guardamos
+        # Usamos colores similares a tu imagen de ejemplo
+
+        # Curva de Temperatura
+        self.temp_curve = self.plot_widget.plot(
+            pen=pg.mkPen('#ff5733', width=2),
+            #name='Temperatura (°C)',
+            fillLevel=0,
+            fillBrush=(255, 87, 51, 70)  # Relleno rojo (RGBA)
+        )
+
+        # Curva de Humedad
+        self.hum_curve = self.plot_widget.plot(
+            pen=pg.mkPen('#2196f3', width=2),
+            #name='Humedad (%)',
+            fillLevel=0,
+            fillBrush=(33, 150, 243, 70)  # Relleno azul (RGBA)
+        )
+
+        graph_layout.addWidget(self.plot_widget)
+        # --- FIN DE LA MODIFICACIÓN ---
+
         graph_box.setLayout(graph_layout)
         graph_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         return graph_box
 
+    # --- (Método _create_bottom_bar sin cambios) ---
     def _create_bottom_bar(self):
         layout = QHBoxLayout()
         self.fecha_hora_display = QLineEdit()
@@ -224,7 +249,7 @@ class Ui_MainWindow(QMainWindow):
         self.ip_display = QLineEdit()
         self.ip_display.setPlaceholderText("IP DEL ARDUINO")
         self.ip_display.setReadOnly(True)
-        self.importar_btn = QPushButton("IMPORTAR")
+        self.importar_btn = QPushButton("EXPORTAR")
         self.exit_btn = QPushButton("EXIT")
         self.search_btn = QPushButton("BUSCAR IP")
 
