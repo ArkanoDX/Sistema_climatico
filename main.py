@@ -1,5 +1,5 @@
 # main.py
-# (Modificado para lógica de historial)
+# (Modificado para sincronizar datos y actualizar el gráfico)
 
 import sys
 import time
@@ -46,13 +46,13 @@ class DiscoveryWorker(QtCore.QObject):
         self.finished.emit()
 
 
-# --- PARTE 2: LÓGICA DEL WORKER DE DATOS (Sin cambios) ---
+# --- PARTE 2: LÓGICA DEL WORKER DE DATOS (MODIFICADO) ---
 class ArduinoWorker(QtCore.QObject):
-    temperatura_actualizada = QtCore.pyqtSignal(float)
-    humedad_actualizada = QtCore.pyqtSignal(float)
-    presion_actualizada = QtCore.pyqtSignal(float)
-    aqi_actualizado = QtCore.pyqtSignal(int)
-    lluvia_actualizada = QtCore.pyqtSignal(int)
+    # --- CAMBIO: Una sola señal para todos los datos ---
+    # Esto garantiza que los datos del gráfico estén sincronizados
+    datos_actualizados = QtCore.pyqtSignal(dict)
+
+    # (Señales antiguas eliminadas)
     error_ocurrido = QtCore.pyqtSignal(str)
     finished = QtCore.pyqtSignal()
 
@@ -67,12 +67,10 @@ class ArduinoWorker(QtCore.QObject):
                 response = requests.get(self.arduino_url, timeout=2.5)
                 response.raise_for_status()
                 data = response.json()
-                self.temperatura_actualizada.emit(data['temperature'])
-                self.humedad_actualizada.emit(data['humidity'])
-                self.presion_actualizada.emit(data['pressure'])
-                self.aqi_actualizado.emit(data['aqi'])
-                self.lluvia_actualizada.emit(data['rainfall'])
-                # El time.sleep(1) coincide con tu petición de 1 segundo
+
+                # --- CAMBIO: Emitir el diccionario de datos ---
+                self.datos_actualizados.emit(data)
+
                 time.sleep(1)
             except Exception as e:
                 print(f"[ArduinoWorker Error]: {e}")
@@ -92,26 +90,31 @@ class EstacionApp(Ui_MainWindow):
         self.arduino_ip = None
         self.data_thread = None
 
+        # --- NUEVO: Listas para guardar los datos del gráfico ---
+        self.max_points = 50  # Número de puntos a mostrar en el gráfico
+        self.time_data = []  # Eje X (contador de lecturas)
+        self.temp_data = []  # Eje Y de Temperatura
+        self.hum_data = []  # Eje Y de Humedad
+        self.x_counter = 0  # Contador para el eje X
+
         self.iniciar_timer_reloj()
 
         self.search_btn.clicked.connect(self.iniciar_busqueda_arduino)
         self.statusBar().showMessage("Listo. Presione 'BUSCAR IP' para conectar.")
 
+    # --- (iniciar_busqueda_arduino y on_discovery_complete sin cambios) ---
     def iniciar_busqueda_arduino(self):
         self.search_btn.setEnabled(False)
         self.search_btn.setText("Buscando...")
         self.statusBar().showMessage("Buscando Arduino en la red...")
-
         self.discovery_thread = QtCore.QThread()
         self.discovery_worker = DiscoveryWorker()
         self.discovery_worker.moveToThread(self.discovery_thread)
-
         self.discovery_thread.started.connect(self.discovery_worker.run)
         self.discovery_worker.found.connect(self.on_discovery_complete)
         self.discovery_worker.finished.connect(self.discovery_thread.quit)
         self.discovery_worker.finished.connect(self.discovery_worker.deleteLater)
         self.discovery_thread.finished.connect(self.discovery_thread.deleteLater)
-
         self.discovery_thread.start()
 
     def on_discovery_complete(self, arduino_info):
@@ -139,19 +142,19 @@ class EstacionApp(Ui_MainWindow):
             self.search_btn.setEnabled(True)
             self.search_btn.setText("BUSCAR IP")
 
+    # --- MÉTODO MODIFICADO ---
     def iniciar_hilo_trabajador(self):
         self.data_thread = QtCore.QThread()
         self.data_worker = ArduinoWorker(arduino_ip=self.arduino_ip)
         self.data_worker.moveToThread(self.data_thread)
 
         self.data_thread.started.connect(self.data_worker.run)
-        self.data_worker.temperatura_actualizada.connect(self.actualizar_temp)
-        self.data_worker.humedad_actualizada.connect(self.actualizar_hum)
-        self.data_worker.presion_actualizada.connect(self.actualizar_presion)
-        self.data_worker.lluvia_actualizada.connect(self.actualizar_lluv)
-        self.data_worker.aqi_actualizado.connect(self.actualizar_qai)
-        self.data_worker.error_ocurrido.connect(self.mostrar_error)
 
+        # --- CAMBIO: Conectar la nueva señal ---
+        self.data_worker.datos_actualizados.connect(self.actualizar_todo)
+        # (Conexiones antiguas eliminadas)
+
+        self.data_worker.error_ocurrido.connect(self.mostrar_error)
         self.data_worker.finished.connect(self.data_thread.quit)
         self.data_worker.finished.connect(self.data_worker.deleteLater)
         self.data_thread.finished.connect(self.data_thread.deleteLater)
@@ -164,52 +167,72 @@ class EstacionApp(Ui_MainWindow):
         self.timer.start(1000)
         self.actualizar_reloj()
 
-    # --- NUEVO: Función de lógica de historial ---
+    # --- (actualizar_sensor sin cambios) ---
     def actualizar_sensor(self, sensor_name, nuevo_valor_str):
-        """
-        Mueve los textos de las etiquetas hacia arriba y
-        establece el nuevo valor en la posición 1 (en vivo).
-        """
         try:
-            # Obtiene la lista de [pos1, pos2, pos3, pos4] para este sensor
             labels = self.sensor_labels[sensor_name]
-
-            # Mueve pos3 -> pos4
             labels[3].setText(labels[2].text())
-            # Mueve pos2 -> pos3
             labels[2].setText(labels[1].text())
-            # Mueve pos1 -> pos2
             labels[1].setText(labels[0].text())
-            # Establece el nuevo valor en pos1 (en vivo)
             labels[0].setText(nuevo_valor_str)
-
         except KeyError:
             print(f"Error: No se encontró la clave del sensor '{sensor_name}'")
         except Exception as e:
             print(f"Error al actualizar sensor: {e}")
 
-    # --- SLOTS DE ACTUALIZACIÓN (MODIFICADOS) ---
-    # Ahora llaman a la nueva función 'actualizar_sensor'
-
-    def actualizar_temp(self, temp):
+    # --- (slots de actualización ahora son "privados") ---
+    def _actualizar_temp(self, temp):
         self.actualizar_sensor('temp', f"{temp:.1f}°C")
 
-    def actualizar_hum(self, hum):
+    def _actualizar_hum(self, hum):
         self.actualizar_sensor('hum', f"{hum:.1f}%")
 
-    def actualizar_presion(self, presion):
+    def _actualizar_presion(self, presion):
         self.actualizar_sensor('pres', f"{presion:.1f} mbar")
 
-    def actualizar_lluv(self, estado_lluvia):
-        # El LED se sigue actualizando por separado
+    def _actualizar_lluv(self, estado_lluvia):
         self.rain_indicator.setState(estado_lluvia)
 
-    def actualizar_qai(self, qai):
+    def _actualizar_qai(self, qai):
         self.actualizar_sensor('qai', str(qai))
+
+    # --- NUEVO: Slot principal que recibe todos los datos ---
+    def actualizar_todo(self, data):
+        """
+        Este método es llamado por el worker CADA SEGUNDO.
+        Actualiza todas las GUI (etiquetas y gráfico).
+        """
+        # 1. Actualizar las etiquetas del historial
+        self._actualizar_temp(data['temperature'])
+        self._actualizar_hum(data['humidity'])
+        self._actualizar_presion(data['pressure'])
+        self._actualizar_qai(data['aqi'])
+        self._actualizar_lluv(data['rainfall'])
+
+        # 2. Añadir datos a las listas del gráfico
+        self.time_data.append(self.x_counter)
+        self.temp_data.append(data['temperature'])
+        self.hum_data.append(data['humidity'])
+        self.x_counter += 1
+
+        # 3. Limitar el número de puntos
+        if len(self.time_data) > self.max_points:
+            self.time_data.pop(0)  # Elimina el dato más antiguo
+            self.temp_data.pop(0)
+            self.hum_data.pop(0)
+
+        # 4. Actualizar el gráfico
+        self.actualizar_grafica()
+
+    # --- NUEVO: Método para actualizar el gráfico ---
+    def actualizar_grafica(self):
+        """Actualiza las curvas del gráfico con los datos de las listas."""
+        self.temp_curve.setData(self.time_data, self.temp_data)
+        self.hum_curve.setData(self.time_data, self.hum_data)
 
     def actualizar_reloj(self):
         now = QtCore.QDateTime.currentDateTime()
-        formato_deseado = "dd/MM/yy - hh:mm ap"
+        formato_deseado = "dd/MM/yy hh:mm ap"
         self.fecha_hora_display.setText(now.toString(formato_deseado))
 
     def mostrar_error(self, mensaje):
