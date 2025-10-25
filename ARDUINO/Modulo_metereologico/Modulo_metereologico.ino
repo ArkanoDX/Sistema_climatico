@@ -1,6 +1,8 @@
 /*--------------------------------------------------------------
 ---------------------------Header Files-------------------------
 ----------------------------------------------------------------*/
+#include <SPI.h>            // <-- NUEVO: Para la tarjeta SD
+#include <SD.h>             // <-- NUEVO: Para la tarjeta SD
 #include <Adafruit_BMP085.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -18,6 +20,7 @@
 #define Air_SensorPin A1
 #define Temp_Hum_SensorPin 2
 #define Servo_Pin 9
+#define SD_CS_Pin 4         // <-- NUEVO: Pin 4 para CS (Chip Select)
 
 /*-------------------------------------------------------------------------
 --------------------------Object instantiation-----------------------------
@@ -34,14 +37,19 @@ Servo myServo;
 -------------------------Global variables----------------------------
 ----------------------------------------------------------------------*/
 
-// --- INICIO: Redes WiFi conocidas ---
+// --- Configuración de IP Estática ---
+IPAddress staticIP(192, 168, 3, 100); 
+IPAddress gateway(192, 168, 3, 254);  
+IPAddress subnet(255, 255, 255, 0);
+IPAddress dns(192, 168, 3, 254);
+
+// --- Redes WiFi conocidas ---
 struct WifiCredential {
   const char* ssid;
   const char* pass;
 };
-
 WifiCredential knownNetworks[] = {
-  {"ITQ-Alumnos", "ITQ.Alumnos2013"},
+  {"HUAWEI-C137", "Wfi@1897"},
   {"SSID_DE_TU_OFICINA", "CONTRASEÑA_OFICINA"},
   {"SSID_DE_TU_CELULAR", "CONTRASEÑA_CELULAR"}
 };
@@ -56,46 +64,31 @@ unsigned long lastSensorUpdate = 0;
 unsigned long lastWiFiCheck = 0;
 
 bool isRaining = false;
-
-// --- lógica de servo (Compuerta) ---
-int servoPos = 0;              // Posición actual (inicia en reposo en 0)
-int targetServoPos = 0;        // Posición deseada (0=Abierto, 132=Cerrado)
-unsigned long lastServoMove = 0; // Tiempo del último movimiento
-const int servoInterval = 1;    // ms entre cada paso del servo
+int servoPos = 0;
+int targetServoPos = 0;
+unsigned long lastServoMove = 0;
+const int servoInterval = 1;
 
 /*---------------------------------------------------------------------
 -----------------User Defined Functions--------------------------------
 ---------------------------------------------------------------------------*/
 
-// --- MODIFICADO: Nueva función updateServo (Compuerta) ---
-// Esta función debe ser llamada en CADA iteración del loop()
+// --- (updateServo y get_wifi_credentials sin cambios) ---
 void updateServo() {
-  
-  // Revisa si la posición actual es diferente de la posición objetivo
-  if (servoPos == targetServoPos) {
-    return; // No hay nada que mover, salir
-  }
-
-  // Revisa si ya pasó el tiempo para el siguiente paso (15ms)
+  if (servoPos == targetServoPos) { return; }
   if (millis() - lastServoMove >= servoInterval) {
-    lastServoMove = millis(); // Resetea el temporizador
-
+    lastServoMove = millis(); 
     if (servoPos < targetServoPos) {
-      servoPos++; // Mover hacia arriba (cerrar)
+      servoPos++;
       myServo.write(servoPos);
-      
     } else if (servoPos > targetServoPos) {
-      servoPos--;   // Mover hacia abajo (abrir)
+      servoPos--;
       myServo.write(servoPos);
     }
   }
 }
-
-
 void get_wifi_credentials() {
-  while (Serial.available() > 0) {
-    Serial.read();
-  }
+  while (Serial.available() > 0) { Serial.read(); }
   Serial.println("Por favor, ingrese el nombre de la red WiFi (SSID) y presione Enter:");
   while (Serial.available() == 0) {}
   String ssid_str = Serial.readStringUntil('\n');
@@ -104,17 +97,8 @@ void get_wifi_credentials() {
   Serial.print("SSID recibido: ");
   Serial.println(ssid);
   Serial.println("\nAhora, ingrese la contraseña de la red WiFi y presione Enter:");
-  /*-------------------------------------------------------------------------------
-  ---------------Salto de linea en el serial monitor-------------------------------
-  ---------------------------------------------------------------------------------*/
-  for (int i = 0; i < 91; ++i) {
-    Serial.print("-");
-  }
+  for (int i = 0; i < 91; ++i) { Serial.print("-"); }
   Serial.println();
-/*-------------------------------------------------------------------------------
-  ---------------Salto de linea en el serial monitor-------------------------------
-  ---------------------------------------------------------------------------------*/
-
   while (Serial.available() == 0) {}
   String pass_str = Serial.readStringUntil('\n');
   pass_str.trim();
@@ -122,17 +106,19 @@ void get_wifi_credentials() {
   Serial.println("Contraseña recibida. Intentando conectar...");
 }
 
+// --- (wifi_connect y wifi_reconnect sin cambios) ---
 bool wifi_connect() {
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Error de comunicación con el módulo WiFi.");
     matrix.loadFrame(no_wifi);
     return false;
   }
-
   Serial.print("Intentando conectar a la red WiFi: ");
   Serial.println(ssid);
   matrix.loadSequence(LEDMATRIX_ANIMATION_WIFI_SEARCH);
   matrix.play(true);
+  
+  WiFi.config(staticIP, dns, gateway, subnet);
   
   WiFi.begin(ssid, pass);
   int attempts = 0;
@@ -141,55 +127,59 @@ bool wifi_connect() {
     delay(1000);
     attempts++;
   }
-
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("\nNo se pudo conectar a la red WiFi (Timeout).");
     matrix.loadFrame(no_wifi);
     return false;
   }
-
-  // --- A la espera de la IP ---
-  Serial.println("\n¡Conectado a la red! Esperando dirección IP...");
-  int ip_attempts = 0;
-  while (WiFi.localIP() == IPAddress(0,0,0,0) && ip_attempts < 10) {
-     Serial.print("DHCP.");
-     Serial.println();
-     /*-------------------------------------------------------------------------------
----------------Salto de linea en el serial monitor-------------------------------
----------------------------------------------------------------------------------*/
-     for (int i = 0; i < 91; ++i) {
-     Serial.print("-");
-     }
-     Serial.println();
-/*-------------------------------------------------------------------------------
----------------Salto de linea en el serial monitor-------------------------------
----------------------------------------------------------------------------------*/
-     delay(500);
-     // Este delay() también está bien aquí
-     ip_attempts++;
-  }
-
-  if (WiFi.localIP() == IPAddress(0,0,0,0)) {
-     Serial.println("\nFallo al obtener IP. La IP es 0.0.0.0");
-     matrix.loadFrame(no_wifi);
-     return false;
-  }
-
+  Serial.println("\n¡Conectado a la red!");
+  Serial.print("IP asignada: ");
+  Serial.println(WiFi.localIP()); 
   matrix.loadFrame(wifi_connected);
   return true;
 }
-
-
 void wifi_reconnect() {
   Serial.println("Se perdió la conexión WiFi. Reconectando...");
   matrix.loadFrame(no_wifi);
   delay(1000);
-  if (wifi_connect()) { // Intentará reconectar a la *última* red exitosa
+  if (wifi_connect()) {
     Serial.println("\n¡Reconexión exitosa!");
     Serial.print("Nueva dirección IP: ");
     Serial.println(WiFi.localIP());
   }
 }
+
+// --- NUEVA FUNCIÓN: Guardar en la Tarjeta SD ---
+void logDataToSD() {
+  // Abre el archivo. "FILE_WRITE" abre el archivo y se posiciona
+  // al final. Si no existe, lo crea.
+  File dataFile = SD.open("datalog.csv", FILE_WRITE);
+
+  if (dataFile) {
+    // Creamos una línea en formato CSV (separado por comas)
+    // Esto es muy fácil de abrir en Excel
+    String dataString = "";
+    dataString += String(temperature);
+    dataString += ",";
+    dataString += String(humidity);
+    dataString += ",";
+    dataString += String(pressure);
+    dataString += ",";
+    dataString += String(AQI);
+    dataString += ",";
+    dataString += String(rainfall);
+
+    dataFile.println(dataString);
+    dataFile.close();
+    // (Opcional) Descomenta esto para ver en el monitor si guardó
+    // Serial.println("Datos guardados en SD."); 
+  } else {
+    // Si no se pudo abrir el archivo (mala conexión, no hay tarjeta)
+    Serial.println("Error al abrir datalog.csv en la SD");
+  }
+}
+// --- FIN DE LA NUEVA FUNCIÓN ---
+
 
 void read_sensor_data() {
   sensors_event_t event;
@@ -197,32 +187,31 @@ void read_sensor_data() {
   if (!isnan(event.temperature)) {
     temperature = event.temperature;
   }
-
   dht.humidity().getEvent(&event);
   if (!isnan(event.relative_humidity)) {
     humidity = event.relative_humidity;
   }
-
   pressure = bmp.readPressure() / 100.0;
   int mq135Raw = analogRead(Air_SensorPin);
   AQI = map(mq135Raw, 0, 1023, 0, 300);
 
-  // --- MODIFICADO: NUEVA LÓGICA DE LLUVIA (COMPUERTA) ---
   int rainReading = digitalRead(Rain_SensorPin);
-  
-  if (rainReading == LOW) { // Está lloviendo
+  if (rainReading == LOW) {
     rainfall = 1;
     isRaining = true;
-    targetServoPos = 132; // ¡OBJETIVO: CERRAR COMPUERTA!
-    
-  } else { // No está lloviendo
+    targetServoPos = 132;
+  } else {
     rainfall = 0;
     isRaining = false;
-    targetServoPos = 0;   // ¡OBJETIVO: ABRIR COMPUERTA!
+    targetServoPos = 0;
   }
-
+  
+  // --- NUEVO: Llamamos a la función de logueo ---
+  // Cada vez que leemos nuevos datos, los guardamos en la SD.
+  logDataToSD();
 }
 
+// --- (send_json_data y send_web_page sin cambios) ---
 void send_json_data(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: application/json");
@@ -235,7 +224,6 @@ void send_json_data(WiFiClient & client) {
            ",\"rainfall\":" + String(rainfall) + "}";
   client.println(json);
 }
-
 void send_web_page(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
@@ -248,197 +236,50 @@ void send_web_page(WiFiClient & client) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Climatico TecNM</title>
-    
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #1f2177;
-            color: #333;
-            text-align: center;
-      
- 
-             padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: auto;
-        }
-        .data-container {
-            display: flex;
-            
- flex-direction: 
- column;
-       
-             gap: 10px;
-        }
-        .data-card {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
-  
-   
-             flex: 1;
-      
-             margin: 5px;
-            text-align: center;
-        }
-        .graph {
-            background: #fff;
- padding: 15px;
- border-radius: 8px;
- box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
-            margin-top: 15px;
-        }
-        canvas {
-            width: 100%;
- height: 400px;
-        }
-        .title-container {
-            display: flex;
- justify-content: center;
-            align-items: center;
-            gap: 30px;
-            margin-bottom: 20px;
-        }
-        .title-container h1 {
-            font-size: 2rem;
- color: #fff;
-            margin: 0;
-        }
-        .title-container img {
-            width: 80px;
- height: auto;
-        }
+        body { font-family: Arial, sans-serif; background: #1f2177; color: #333; text-align: center; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .data-container { display: flex; flex-direction: column; gap: 10px; }
+        .data-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); flex: 1; margin: 5px; text-align: center; }
+        .graph { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); margin-top: 15px; }
+        canvas { width: 100%; height: 400px; }
+        .title-container { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 20px; }
+        .title-container h1 { font-size: 2rem; color: #fff; margin: 0; }
+        .title-container img { width: 80px; height: auto; }
     </style>
 </head>
 <body>
-
-    <div class="title-container">
-        <h1>Sistema Climatico TecNm</h1>
-        </div>
-    
+    <div class="title-container"><h1>Sistema Climatico TecNm</h1></div>
     <div class='container'>
         <div id='weather' class='data-container'></div>
-        
-        <div class='graph'>
-            <canvas id='combinedGraph'></canvas>
-    
- 
-         </div>
+        <div class='graph'><canvas id='combinedGraph'></canvas></div>
     </div>
-    
- 
     <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
-    
     <script>
         const ctxCombined = document.getElementById('combinedGraph').getContext('2d');
- // --- Configuración de la Gráfica (ahora ordenada) ---
         const combinedChart = new Chart(ctxCombined, {
             type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                   
- 
- 
-   {
-                        label: 'Temperatura (°C)',
-                        data: [],
-                        borderColor: '#ff5733',
-                    
-  
-   
-   backgroundColor: 'rgba(255, 87, 51, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3
-              
-   
-     
-  },
-                    {
-                        label: 'Humedad (%)',
-                        data: [],
-                    
-    
-  borderColor: '#2196f3',
-    
-                         backgroundColor: 'rgba(33, 150, 243, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-           
-     
-          pointRadius: 3
- 
-                     }
-                ]
-            },
-            options: {
-                responsive: true,
-     
-       
-       maintainAspectRatio: false,
-      
-                 animation: false,
-                scales: {
-                    x: {
-                        title: 
- { display: true, text: 'Time' }
- 
-                     },
- 
-                     y: {
-                        beginAtZero: true,
-                        min: 
- 0,     
-                 max: 100,
-     
-                         ticks: { stepSize: 10 }
-                    }
-                }
-    
-         }
- 
+            data: { labels: [], datasets: [ { label: 'Temperatura (°C)', data: [], borderColor: '#ff5733', backgroundColor: 'rgba(255, 87, 51, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }, { label: 'Humedad (%)', data: [], borderColor: '#2196f3', backgroundColor: 'rgba(33, 150, 243, 0.2)', fill: true, tension: 0.4, pointRadius: 3 } ] },
+            options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { title: { display: true, text: 'Time' } }, y: { beginAtZero: true, min: 0, max: 100, ticks: { stepSize: 10 } } } }
         });
- // --- Función para pedir datos y actualizar la página ---
         function fetchWeatherData() {
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
-             // 1. Actualizar el HTML de las tarjetas (ahora más legible)
-                    document.getElementById('weather').innerHTML = `
-                        <div class='data-card'>     
- 🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 🌨️ Humedad: ${data.humidity}%
-                        </div>
-                        <div class='data-card'>
-                            🌀 Presión: ${data.pressure} mbar 
-     </div>
-                        <div class='data-card'>
-                            🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 🌧️ Lluvia: ${data.rainfall ? 'Yes' : 'No'}                       
-   </div>          
-             `;                    
-                    // 2. Actualizar los datos de la gráfica
-                    let time = new 
- Date().toLocaleTimeString();
- combinedChart.data.labels.push(time);
+             document.getElementById('weather').innerHTML = `<div class='data-card'>🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 🌨️ Humedad: ${data.humidity}%</div><div class='data-card'>🌀 Presión: ${data.pressure} mbar </div><div class='data-card'>🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 🌧️ Lluvia: ${data.rainfall ? 'Yes' : 'No'}</div>`;                    
+                    let time = new Date().toLocaleTimeString();
+                    combinedChart.data.labels.push(time);
                     combinedChart.data.datasets[0].data.push(data.temperature);
                     combinedChart.data.datasets[1].data.push(data.humidity);
-                    
-                    // 3. Limitar la gráfica a 10 puntos
                     if (combinedChart.data.labels.length > 10) {
                         combinedChart.data.labels.shift();
- combinedChart.data.datasets[0].data.shift();
+                        combinedChart.data.datasets[0].data.shift();
                         combinedChart.data.datasets[1].data.shift();
                     }
-                    // 4. Redibujar la gráfica
                     combinedChart.update();
- });
+                });
         }        
-        // --- CORRECCIÓN 2: Intervalo de JS alineado con el sensor ---
-        // Pedir datos cada 2 segundos (2000ms) para coincidir con la actualización del sensor
         setInterval(fetchWeatherData, 2000);
- // --- FIN CORRECCIÓN 2 ---
  </script>
 </body>
 </html>
@@ -446,6 +287,7 @@ void send_web_page(WiFiClient & client) {
   client.print(html);
 }
 
+// --- (run_local_webserver sin cambios) ---
 void run_local_webserver() {
   WiFiClient client = server.available();
   if (client) {
@@ -469,29 +311,37 @@ void setup() {
   Serial.println("--- Inicio del Setup ---");
 
   matrix.begin();
-  
-  // --- NUEVO --- Inicializar el servo
- 
   myServo.attach(Servo_Pin);
-  myServo.write(servoPos); // Lo coloca en la posición inicial (0 grados) al iniciar
+  myServo.write(servoPos);
+
+  // --- NUEVO: Inicializar la tarjeta SD ---
+  Serial.println("Inicializando tarjeta SD...");
+  if (!SD.begin(SD_CS_Pin)) {
+    Serial.println("¡Error al inicializar la tarjeta SD!");
+    // Aquí podrías mostrar un error en la matriz LED si quisieras
+  } else {
+    Serial.println("Tarjeta SD inicializada correctamente.");
+    // Opcional: Escribir encabezados en el archivo si es nuevo
+    File dataFile = SD.open("datalog.csv", FILE_WRITE);
+    if (dataFile && dataFile.size() == 0) {
+      dataFile.println("Temperatura,Humedad,Presion,QAI,Lluvia");
+    }
+    dataFile.close();
+  }
+  // --- FIN DE LA INICIALIZACIÓN DE SD ---
 
   bool isConnected = false;
-  // Bandera para saber si ya nos conectamos
-  int numKnownNetworks 
- = sizeof(knownNetworks) / sizeof(knownNetworks[0]);
-
+  int numKnownNetworks = sizeof(knownNetworks) / sizeof(knownNetworks[0]);
   Serial.println("Buscando redes WiFi conocidas...");
-  // 1. Intentar conectar a las redes conocidas
-  for (int i = 0;
- i < numKnownNetworks; i++) {
-    // La función wifi_connect() usa las variables globales 'ssid' y 'pass'
+
+  for (int i = 0; i < numKnownNetworks; i++) {
     strncpy(ssid, knownNetworks[i].ssid, sizeof(ssid));
     strncpy(pass, knownNetworks[i].pass, sizeof(pass));
     ssid[sizeof(ssid) - 1] = '\0';
     pass[sizeof(pass) - 1] = '\0';
     if (wifi_connect()) {
       isConnected = true;
-      break;
+      break; 
     } else {
       Serial.println("... intento fallido.");
       WiFi.disconnect();
@@ -499,18 +349,16 @@ void setup() {
     }
   }
 
-  // 2. Si ninguna red conocida funcionó, pedir credenciales manualmente
   if (!isConnected) {
     Serial.println("\nNo se pudo conectar a ninguna red conocida.");
     get_wifi_credentials();
     isConnected = wifi_connect();
   }
 
-  // 3. Continuar con el resto del setup SÓLO SI hay conexión
   if (isConnected) {
     Serial.println("\n¡Conexión a WiFi e IP obtenida exitosamente!");
     Serial.print("Red conectada: ");
-    Serial.println(ssid); // Muestra a cuál red se conectó
+    Serial.println(ssid); 
     Serial.print("Dirección IP asignada: ");
     Serial.println(WiFi.localIP());
     Serial.print("Potencia de la señal (RSSI): ");
@@ -541,21 +389,19 @@ void setup() {
 -----------------Loop function-------------------------------
 -------------------------------------------------------------*/
 void loop() {
+  // Leemos los sensores cada 2 segundos
   if (millis() - lastSensorUpdate >= 2000) { 
     lastSensorUpdate = millis();
-    read_sensor_data();
+    read_sensor_data(); // Esta función ahora también guarda en la SD
   }
 
-  // Esto revisará si el servo necesita moverse un paso, sin bloquear
-  updateServo();
-  // --- FIN MODIFICADO ---
+  updateServo(); // Actualiza el servo (no bloqueante)
 
-  // Si se pierde la conexión, wifi_reconnect() intentará
-  // reconectarse a la última red exitosa (guardada en 'ssid' y 'pass')
+  // Revisa la conexión WiFi (no bloqueante)
   if (WiFi.status() != WL_CONNECTED && millis() - lastWiFiCheck >= 5000) {
     lastWiFiCheck = millis();
     wifi_reconnect();
   }
 
-  run_local_webserver();
+  run_local_webserver(); // Revisa si hay peticiones de Python
 }
