@@ -110,7 +110,7 @@ class Ui_MainWindow(QMainWindow):
         layout = QHBoxLayout()
         (temp_widget, self.sensor_labels['temp']) = self._create_single_sensor_box("TEMP")
         (hum_widget, self.sensor_labels['hum']) = self._create_single_sensor_box("HUMEDAD")
-        (pres_widget, self.sensor_labels['pres']) = self._create_single_sensor_box("PRESION")
+        (pres_widget, self.sensor_labels['pres']) = self._create_single_sensor_box("PRESIÓN")
         (qai_widget, self.sensor_labels['qai']) = self._create_single_sensor_box("QAI")
         layout.addWidget(temp_widget)
         layout.addWidget(hum_widget)
