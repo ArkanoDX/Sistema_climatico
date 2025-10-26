@@ -1,22 +1,17 @@
-# main.py
-# (Modificado para almacenar y exportar historial a Excel)
-
 import sys
 import time
 import requests
 import socket
 from PyQt5 import QtCore, QtGui, QtWidgets
-# --- NUEVO: Importar QFileDialog para la ventana "Guardar como" ---
-from PyQt5.QtWidgets import QInputDialog, QApplication, QFileDialog
+from PyQt5.QtWidgets import QInputDialog, QApplication, QFileDialog, QMessageBox
 from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from GUI.gui import Ui_MainWindow
 
-# --- NUEVO: Importar librerías para Excel e historial ---
-from openpyxl import Workbook
 from collections import deque
+from export_utils import export_data_to_excel
 
 
-# --- PARTE 1: LÓGICA DE DETECCIÓN (Sin cambios) ---
+# --- LÓGICA DE DETECCIÓN  ---
 class ArduinoListener(ServiceListener):
     def __init__(self):
         self.arduino_info = None
@@ -51,7 +46,7 @@ class DiscoveryWorker(QtCore.QObject):
         self.finished.emit()
 
 
-# --- PARTE 2: LÓGICA DEL WORKER DE DATOS (Sin cambios) ---
+# --- LÓGICA DEL WORKER DE DATOS ---
 class ArduinoWorker(QtCore.QObject):
     datos_actualizados = QtCore.pyqtSignal(dict)
     error_ocurrido = QtCore.pyqtSignal(str)
@@ -80,24 +75,27 @@ class ArduinoWorker(QtCore.QObject):
         self.is_running = False
 
 
-# --- PARTE 3: LA APLICACIÓN PRINCIPAL (MODIFICADA) ---
+# --- LA APLICACIÓN PRINCIPAL ---
 class EstacionApp(Ui_MainWindow):
     def __init__(self):
         super().__init__()
 
-        self.ARDUINO_STATIC_IP = "192.168.3.100"  # Tu IP estática
+        self.ARDUINO_STATIC_IP = "192.168.3.100"
         self.arduino_ip = None
         self.data_thread = None
 
-        # --- MODIFICADO: Renombrado para claridad ---
-        self.max_graph_points = 50  # Puntos para el gráfico en vivo
+        self.is_connected = False
+        self.has_connected_once = False  # <--  Para rastrear la primera conexión
+        self.connection_alert_box = None
+
+        # Listas para el gráfico
+        self.max_graph_points = 50
         self.time_data = []
         self.temp_data = []
         self.hum_data = []
         self.x_counter = 0
 
-        # --- NUEVO: Listas (deques) para historial de exportación ---
-        # deque es una lista súper eficiente con un tamaño máximo
+        # Listas para historial de exportación
         self.max_history_points = 500
         self.temp_history = deque(maxlen=self.max_history_points)
         self.hum_history = deque(maxlen=self.max_history_points)
@@ -106,19 +104,17 @@ class EstacionApp(Ui_MainWindow):
 
         self.iniciar_timer_reloj()
 
-        # --- MODIFICADO: Conexiones de botones ---
         self.search_btn.clicked.connect(self.iniciar_busqueda_arduino)
-        self.importar_btn.clicked.connect(self.exportar_a_excel)  # <-- NUEVA CONEXIÓN
+        self.importar_btn.clicked.connect(self.exportar_a_excel)
 
         self.iniciar_conexion_automatica()
 
-    # --- (iniciar_conexion_automatica y lógica de búsqueda sin cambios) ---
     def iniciar_conexion_automatica(self):
         self.statusBar().showMessage(f"Intentando conexión automática a IP estática: {self.ARDUINO_STATIC_IP}...")
         self.arduino_ip = self.ARDUINO_STATIC_IP
         self.ip_display.setText(self.arduino_ip)
         self.search_btn.setEnabled(False)
-        self.search_btn.setText("Conectando...")
+        self.search_btn.setText("Conectado")
         self.iniciar_hilo_trabajador()
 
     def iniciar_busqueda_arduino(self):
@@ -155,7 +151,7 @@ class EstacionApp(Ui_MainWindow):
             self.statusBar().showMessage(f"Intentando conectar con {self.arduino_ip}...")
             self.ip_display.setText(self.arduino_ip)
             self.search_btn.setEnabled(False)
-            self.search_btn.setText("Conectando...")
+            self.search_btn.setText("Conectado")
             self.iniciar_hilo_trabajador()
         else:
             self.statusBar().showMessage("Operación cancelada.")
@@ -163,6 +159,13 @@ class EstacionApp(Ui_MainWindow):
             self.search_btn.setText("BUSCAR IP")
 
     def iniciar_hilo_trabajador(self):
+        self.is_connected = False
+        if self.connection_alert_box:
+            self.connection_alert_box.accept()
+            self.connection_alert_box = None
+
+        # NO reseteamos self.has_connected_once aquí
+
         self.data_thread = QtCore.QThread()
         self.data_worker = ArduinoWorker(arduino_ip=self.arduino_ip)
         self.data_worker.moveToThread(self.data_thread)
@@ -180,7 +183,6 @@ class EstacionApp(Ui_MainWindow):
         self.timer.start(1000)
         self.actualizar_reloj()
 
-    # --- (Funciones de historial sin cambios) ---
     def actualizar_sensor(self, sensor_name, nuevo_valor_str):
         try:
             labels = self.sensor_labels[sensor_name]
@@ -206,33 +208,47 @@ class EstacionApp(Ui_MainWindow):
     def _actualizar_qai(self, qai):
         self.actualizar_sensor('qai', str(qai))
 
-    # --- MÉTODO MODIFICADO ---
+    # --- LÓGICA DE ALERTA ---
     def actualizar_todo(self, data):
-        # 1. Actualizar las etiquetas del historial
+        if not self.is_connected:
+            self.is_connected = True
+            self.statusBar().showMessage(f"¡Conexión establecida con {self.arduino_ip}!")
+
+            if self.connection_alert_box:
+                self.connection_alert_box.accept()
+                self.connection_alert_box = None
+
+            # Solo muestra el pop-up si YA se había conectado antes
+            if self.has_connected_once:
+                QMessageBox.information(self,
+                                        "Conexión Recuperada",
+                                        f"Se ha reconectado exitosamente al Modulo en {self.arduino_ip}.")
+            else:
+                # Si es la primera vez, solo marcamos la variable y no mostramos pop-up
+                self.has_connected_once = True
+
+        # --- Lógica de actualización ---
         self._actualizar_temp(data['temperature'])
         self._actualizar_hum(data['humidity'])
         self._actualizar_presion(data['pressure'])
         self._actualizar_qai(data['aqi'])
         self._actualizar_lluv(data['rainfall'])
 
-        # 2. Añadir datos a las listas del gráfico
         self.time_data.append(self.x_counter)
         self.temp_data.append(data['temperature'])
         self.hum_data.append(data['humidity'])
         self.x_counter += 1
 
-        if len(self.time_data) > self.max_graph_points:  # Usa el límite del gráfico
+        if len(self.time_data) > self.max_graph_points:
             self.time_data.pop(0)
             self.temp_data.pop(0)
             self.hum_data.pop(0)
 
-        # --- NUEVO: 3. Añadir datos a las listas de historial ---
         self.temp_history.append(data['temperature'])
         self.hum_history.append(data['humidity'])
         self.pres_history.append(data['pressure'])
         self.qai_history.append(data['aqi'])
 
-        # 4. Actualizar el gráfico
         self.actualizar_grafica()
 
     def actualizar_grafica(self):
@@ -241,13 +257,32 @@ class EstacionApp(Ui_MainWindow):
 
     def actualizar_reloj(self):
         now = QtCore.QDateTime.currentDateTime()
-        formato_deseado = "dd/MM/yy - hh:mm ap"
+        formato_deseado = "dd/MM/yy hh:mm ap"
         self.fecha_hora_display.setText(now.toString(formato_deseado))
 
     def mostrar_error(self, mensaje):
-        self.statusBar().showMessage(mensaje)
+        self.statusBar().showMessage(f"Error: {mensaje}. Reintentando...")
         self.search_btn.setEnabled(True)
         self.search_btn.setText("BUSCAR IP")
+
+        # Solo mostramos el pop-up la *primera vez* que se pierde
+        # Y solo si ya habíamos establecido una conexión inicial
+        if self.is_connected and self.has_connected_once:
+            self.is_connected = False
+            print(f"¡Conexión perdida! Error: {mensaje}")
+
+            self.connection_alert_box = QMessageBox(self)
+            self.connection_alert_box.setIcon(QMessageBox.Warning)
+            self.connection_alert_box.setWindowTitle("Conexión Perdida")
+            self.connection_alert_box.setText(f"Se perdió la conexión con el Modulo.\n {mensaje}\n\n"
+                                              "Los datos se están guardando en la SD del Modulo.\n"
+                                              "La aplicación intentará reconectarse automáticamente.")
+            self.connection_alert_box.setStandardButtons(QMessageBox.Ok)
+            self.connection_alert_box.show()
+        else:
+            # Si el error ocurre en el *primer* intento de conexión (antes de 'has_connected_once' sea True)
+            # simplemente marcamos 'is_connected' como False y no mostramos el pop-up.
+            self.is_connected = False
 
     def closeEvent(self, event):
         if self.data_thread and self.data_thread.isRunning():
@@ -256,55 +291,18 @@ class EstacionApp(Ui_MainWindow):
             self.data_thread.wait()
         event.accept()
 
-    # --- NUEVO: MÉTODO DE EXPORTACIÓN ---
     def exportar_a_excel(self):
-        self.statusBar().showMessage("Generando archivo de Excel...")
-
-        # 1. Pedir al usuario dónde guardar el archivo
-        options = QFileDialog.Options()
-        # options |= QFileDialog.DontUseNativeDialog # Descomenta si el diálogo nativo da problemas
-        filePath, _ = QFileDialog.getSaveFileName(self, "Guardar Archivo", "",
-                                                  "Archivos de Excel (*.xlsx);;Todos los archivos (*)", options=options)
-
-        if not filePath:
-            # Si el usuario presionó "Cancelar"
-            self.statusBar().showMessage("Exportación cancelada.")
-            return
-
-        # 2. Crear el libro de Excel en memoria
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Datos de Sensores"
-
-        # 3. Escribir los encabezados
-        ws.append(["Temperatura (°C)", "Humedad (%)", "Presión (mbar)", "QAI"])
-
-        # 4. Escribir los datos
-        # Convertimos los 'deques' a listas para una iteración segura
-        temp_data = list(self.temp_history)
-        hum_data = list(self.hum_history)
-        pres_data = list(self.pres_history)
-        qai_data = list(self.qai_history)
-
-        # Usamos la longitud de la lista más larga (aunque deberían ser iguales)
-        for i in range(len(temp_data)):
-            ws.append([
-                temp_data[i] if i < len(temp_data) else None,
-                hum_data[i] if i < len(hum_data) else None,
-                pres_data[i] if i < len(pres_data) else None,
-                qai_data[i] if i < len(qai_data) else None
-            ])
-
-        # 5. Guardar el archivo en el disco
-        try:
-            wb.save(filePath)
-            self.statusBar().showMessage(f"¡Datos exportados exitosamente!")
-        except Exception as e:
-            print(f"Error al guardar el archivo: {e}")
-            self.statusBar().showMessage(f"Error al guardar el archivo.")
+        export_data_to_excel(
+            parent_window=self,
+            status_bar=self.statusBar(),
+            temp_history=self.temp_history,
+            hum_history=self.hum_history,
+            pres_history=self.pres_history,
+            qai_history=self.qai_history
+        )
 
 
-# --- PARTE 4: PUNTO DE ENTRADA (Sin cambios) ---
+# --- PUNTO DE ENTRADA ---
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")

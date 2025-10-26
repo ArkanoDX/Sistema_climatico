@@ -1,9 +1,6 @@
-# export_utils.py
-# Módulo dedicado a la exportación de datos
-
 from PyQt5.QtWidgets import QFileDialog
 from openpyxl import Workbook
-from collections import deque  # Para que el editor de código sepa el tipo de dato
+from collections import deque
 
 
 def export_data_to_excel(parent_window, status_bar,
@@ -37,13 +34,11 @@ def export_data_to_excel(parent_window, status_bar,
     ws.append(["Temperatura (°C)", "Humedad (%)", "Presión (mbar)", "QAI"])
 
     # 4. Escribir los datos
-    # Convertimos los 'deques' a listas para una iteración segura
     temp_data = list(temp_history)
     hum_data = list(hum_history)
     pres_data = list(pres_history)
     qai_data = list(qai_history)
 
-    # Usamos la longitud de la lista más larga
     for i in range(len(temp_data)):
         ws.append([
             temp_data[i] if i < len(temp_data) else None,

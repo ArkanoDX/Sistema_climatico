@@ -1,8 +1,8 @@
 /*--------------------------------------------------------------
 ---------------------------Header Files-------------------------
 ----------------------------------------------------------------*/
-#include <SPI.h>            // <-- NUEVO: Para la tarjeta SD
-#include <SD.h>             // <-- NUEVO: Para la tarjeta SD
+#include <SPI.h>            
+#include <SD.h>             
 #include <Adafruit_BMP085.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -20,7 +20,7 @@
 #define Air_SensorPin A1
 #define Temp_Hum_SensorPin 2
 #define Servo_Pin 9
-#define SD_CS_Pin 4         // <-- NUEVO: Pin 4 para CS (Chip Select)
+#define SD_CS_Pin 4         
 
 /*-------------------------------------------------------------------------
 --------------------------Object instantiation-----------------------------
@@ -39,7 +39,7 @@ Servo myServo;
 
 // --- Configuración de IP Estática ---
 IPAddress staticIP(192, 168, 3, 100); 
-IPAddress gateway(192, 168, 3, 254);  
+IPAddress gateway(192, 168, 3, 254);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(192, 168, 3, 254);
 
@@ -68,12 +68,12 @@ int servoPos = 0;
 int targetServoPos = 0;
 unsigned long lastServoMove = 0;
 const int servoInterval = 1;
+bool sdCardInitialized = false;
 
 /*---------------------------------------------------------------------
 -----------------User Defined Functions--------------------------------
 ---------------------------------------------------------------------------*/
 
-// --- (updateServo y get_wifi_credentials sin cambios) ---
 void updateServo() {
   if (servoPos == targetServoPos) { return; }
   if (millis() - lastServoMove >= servoInterval) {
@@ -87,6 +87,7 @@ void updateServo() {
     }
   }
 }
+
 void get_wifi_credentials() {
   while (Serial.available() > 0) { Serial.read(); }
   Serial.println("Por favor, ingrese el nombre de la red WiFi (SSID) y presione Enter:");
@@ -106,7 +107,6 @@ void get_wifi_credentials() {
   Serial.println("Contraseña recibida. Intentando conectar...");
 }
 
-// --- (wifi_connect y wifi_reconnect sin cambios) ---
 bool wifi_connect() {
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Error de comunicación con el módulo WiFi.");
@@ -132,12 +132,11 @@ bool wifi_connect() {
     matrix.loadFrame(no_wifi);
     return false;
   }
-  Serial.println("\n¡Conectado a la red!");
-  Serial.print("IP asignada: ");
-  Serial.println(WiFi.localIP()); 
+  
   matrix.loadFrame(wifi_connected);
   return true;
 }
+
 void wifi_reconnect() {
   Serial.println("Se perdió la conexión WiFi. Reconectando...");
   matrix.loadFrame(no_wifi);
@@ -149,15 +148,11 @@ void wifi_reconnect() {
   }
 }
 
-// --- NUEVA FUNCIÓN: Guardar en la Tarjeta SD ---
 void logDataToSD() {
-  // Abre el archivo. "FILE_WRITE" abre el archivo y se posiciona
-  // al final. Si no existe, lo crea.
+  if (!sdCardInitialized) { return; } 
   File dataFile = SD.open("datalog.csv", FILE_WRITE);
 
   if (dataFile) {
-    // Creamos una línea en formato CSV (separado por comas)
-    // Esto es muy fácil de abrir en Excel
     String dataString = "";
     dataString += String(temperature);
     dataString += ",";
@@ -168,18 +163,12 @@ void logDataToSD() {
     dataString += String(AQI);
     dataString += ",";
     dataString += String(rainfall);
-
     dataFile.println(dataString);
     dataFile.close();
-    // (Opcional) Descomenta esto para ver en el monitor si guardó
-    // Serial.println("Datos guardados en SD."); 
   } else {
-    // Si no se pudo abrir el archivo (mala conexión, no hay tarjeta)
-    Serial.println("Error al abrir datalog.csv en la SD");
+    Serial.println("Error al abrir datalog.csv para escribir");
   }
 }
-// --- FIN DE LA NUEVA FUNCIÓN ---
-
 
 void read_sensor_data() {
   sensors_event_t event;
@@ -206,12 +195,9 @@ void read_sensor_data() {
     targetServoPos = 0;
   }
   
-  // --- NUEVO: Llamamos a la función de logueo ---
-  // Cada vez que leemos nuevos datos, los guardamos en la SD.
   logDataToSD();
 }
 
-// --- (send_json_data y send_web_page sin cambios) ---
 void send_json_data(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: application/json");
@@ -224,6 +210,11 @@ void send_json_data(WiFiClient & client) {
            ",\"rainfall\":" + String(rainfall) + "}";
   client.println(json);
 }
+
+/*-----------------------------------------------------------------
+----------------------Estructura de la pagina web -----------------
+-----------------------------------------------------------------*/
+
 void send_web_page(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
@@ -287,7 +278,6 @@ void send_web_page(WiFiClient & client) {
   client.print(html);
 }
 
-// --- (run_local_webserver sin cambios) ---
 void run_local_webserver() {
   WiFiClient client = server.available();
   if (client) {
@@ -314,47 +304,50 @@ void setup() {
   myServo.attach(Servo_Pin);
   myServo.write(servoPos);
 
-  // --- NUEVO: Inicializar la tarjeta SD ---
-  Serial.println("Inicializando tarjeta SD...");
+  // Inicializar SD
   if (!SD.begin(SD_CS_Pin)) {
-    Serial.println("¡Error al inicializar la tarjeta SD!");
-    // Aquí podrías mostrar un error en la matriz LED si quisieras
+    sdCardInitialized = false;
   } else {
-    Serial.println("Tarjeta SD inicializada correctamente.");
-    // Opcional: Escribir encabezados en el archivo si es nuevo
+    sdCardInitialized = true;
     File dataFile = SD.open("datalog.csv", FILE_WRITE);
     if (dataFile && dataFile.size() == 0) {
       dataFile.println("Temperatura,Humedad,Presion,QAI,Lluvia");
     }
     dataFile.close();
   }
-  // --- FIN DE LA INICIALIZACIÓN DE SD ---
 
   bool isConnected = false;
   int numKnownNetworks = sizeof(knownNetworks) / sizeof(knownNetworks[0]);
   Serial.println("Buscando redes WiFi conocidas...");
 
+  // --- BUCLE CORREGIDO ---
   for (int i = 0; i < numKnownNetworks; i++) {
     strncpy(ssid, knownNetworks[i].ssid, sizeof(ssid));
     strncpy(pass, knownNetworks[i].pass, sizeof(pass));
     ssid[sizeof(ssid) - 1] = '\0';
     pass[sizeof(pass) - 1] = '\0';
-    if (wifi_connect()) {
+    
+    if (wifi_connect()) { // Intenta conectar
       isConnected = true;
+      // SI CONECTA, AHORA SÍ SALIMOS DEL BUCLE
       break; 
     } else {
+      // SI FALLA, *NO* HACEMOS BREAK
       Serial.println("... intento fallido.");
       WiFi.disconnect();
       delay(100);
     }
   }
+  // --- FIN DE LA CORRECCIÓN ---
 
+  // Si ninguna red conocida funcionó, pedir credenciales manualmente
   if (!isConnected) {
     Serial.println("\nNo se pudo conectar a ninguna red conocida.");
     get_wifi_credentials();
     isConnected = wifi_connect();
   }
 
+  // Continuar con el resto del setup SÓLO SI hay conexión
   if (isConnected) {
     Serial.println("\n¡Conexión a WiFi e IP obtenida exitosamente!");
     Serial.print("Red conectada: ");
@@ -365,7 +358,8 @@ void setup() {
     Serial.print(WiFi.RSSI());
     Serial.println(" dBm");
     server.begin();
-    Serial.println("Servidor web iniciado. Puede acceder desde la IP de arriba.");
+    Serial.println("Servidor web iniciado.");
+    
     if (!mdns.begin("sistemaclima-tecnm")) {
       Serial.println("Error al iniciar MDNS.");
     } else {
@@ -380,28 +374,31 @@ void setup() {
   dht.begin();
   if (!bmp.begin()) {
     Serial.println("No se encontró el sensor BMP085, revisar conexiones.");
-  } else {
-    Serial.println("--- Setup Completado ---");
+  } 
+  
+  Serial.println("================================================");
+  if (!sdCardInitialized) {
+      Serial.println("No se sincronizo la SD");
   }
+  
+  Serial.println("--- Setup Completado ---");
 }
 
 /*-----------------------------------------------------------
 -----------------Loop function-------------------------------
 -------------------------------------------------------------*/
 void loop() {
-  // Leemos los sensores cada 2 segundos
   if (millis() - lastSensorUpdate >= 2000) { 
     lastSensorUpdate = millis();
-    read_sensor_data(); // Esta función ahora también guarda en la SD
+    read_sensor_data();
   }
 
-  updateServo(); // Actualiza el servo (no bloqueante)
+  updateServo();
 
-  // Revisa la conexión WiFi (no bloqueante)
   if (WiFi.status() != WL_CONNECTED && millis() - lastWiFiCheck >= 5000) {
     lastWiFiCheck = millis();
     wifi_reconnect();
   }
 
-  run_local_webserver(); // Revisa si hay peticiones de Python
+  run_local_webserver();
 }
