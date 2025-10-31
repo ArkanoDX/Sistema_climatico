@@ -1,6 +1,3 @@
-# GUI/gui.py
-# (Modificado para incluir un PlotWidget de PyQtGraph)
-
 import sys
 import os
 from PyQt5.QtWidgets import (
@@ -9,20 +6,19 @@ from PyQt5.QtWidgets import (
     QRadioButton)
 from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QPixmap, QIcon
 from PyQt5.QtCore import Qt
-import pyqtgraph as pg  # <-- 1. Importar PyQtGraph
+import pyqtgraph as pg
 
-# Configuración global para que los gráficos tengan fondo blanco
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 
 
-# --- WIDGET LED (Sin cambios) ---
 class LedRadioButton(QRadioButton):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setText("")
         self.setCheckable(False)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
+
         self._is_on = False
         self._update_style()
 
@@ -66,14 +62,12 @@ class Ui_MainWindow(QMainWindow):
         self.main_layout.addLayout(sensor_boxes_layout)
         legend_layout = self._create_legend()
         self.main_layout.addLayout(legend_layout)
-        graph_groupbox = self._create_graph_area()  # <-- 2. Llamamos al método modificado
+        graph_groupbox = self._create_graph_area()
         self.main_layout.addWidget(graph_groupbox)
         bottom_bar_layout = self._create_bottom_bar()
         self.main_layout.addLayout(bottom_bar_layout)
 
         self.statusBar().setStyleSheet("color: white;")
-
-    # --- (Métodos _create_image... y _create_sensor... sin cambios) ---
 
     def _create_image_placeholder(self, image_path):
         label = QLabel()
@@ -192,18 +186,13 @@ class Ui_MainWindow(QMainWindow):
         layout.addStretch(1)
         return layout
 
-    # --- 3. MÉTODO MODIFICADO ---
     def _create_graph_area(self):
         """Crea el QGroupBox y el PlotWidget para la gráfica."""
 
-        # El QGroupBox sigue siendo el contenedor blanco
         graph_box = QGroupBox("")
         graph_box.setStyleSheet("background-color: white; color: black;")
 
         graph_layout = QVBoxLayout()
-
-        # --- REEMPLAZAMOS EL QLABEL ---
-        # placeholder_label = QLabel("AQUÍ VA LA GRÁFICA")
 
         # Creamos el widget de gráfica
         self.plot_widget = pg.PlotWidget()
@@ -214,13 +203,9 @@ class Ui_MainWindow(QMainWindow):
         self.plot_widget.addLegend()
         self.plot_widget.showGrid(x=True, y=True)
 
-        # Creamos las líneas (curvas) y las guardamos
-        # Usamos colores similares a tu imagen de ejemplo
-
         # Curva de Temperatura
         self.temp_curve = self.plot_widget.plot(
             pen=pg.mkPen('#ff5733', width=2),
-            #name='Temperatura (°C)',
             fillLevel=0,
             fillBrush=(255, 87, 51, 70)  # Relleno rojo (RGBA)
         )
@@ -228,19 +213,17 @@ class Ui_MainWindow(QMainWindow):
         # Curva de Humedad
         self.hum_curve = self.plot_widget.plot(
             pen=pg.mkPen('#2196f3', width=2),
-            #name='Humedad (%)',
             fillLevel=0,
             fillBrush=(33, 150, 243, 70)  # Relleno azul (RGBA)
         )
 
         graph_layout.addWidget(self.plot_widget)
-        # --- FIN DE LA MODIFICACIÓN ---
+        # --- FIN DE LA GRAFICA ---
 
         graph_box.setLayout(graph_layout)
         graph_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         return graph_box
 
-    # --- (Método _create_bottom_bar sin cambios) ---
     def _create_bottom_bar(self):
         layout = QHBoxLayout()
         self.fecha_hora_display = QLineEdit()
