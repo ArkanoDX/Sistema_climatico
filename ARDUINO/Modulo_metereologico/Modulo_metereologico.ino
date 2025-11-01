@@ -37,13 +37,11 @@ Servo myServo;
 -------------------------Global variables----------------------------
 ----------------------------------------------------------------------*/
 
-// --- MODIFICADO: Estas variables ahora se asignan dinámicamente en el bucle ---
 IPAddress staticIP;
 IPAddress gateway;
 IPAddress subnet;
 IPAddress dns;
 
-// --- MODIFICADO: Estructura para guardar toda la info de red ---
 struct WifiCredential {
   const char* ssid;
   const char* pass;
@@ -53,34 +51,30 @@ struct WifiCredential {
   IPAddress dns;
 };
 
-// --- MODIFICADO: Arreglo con toda la info de red ---
-// 
 WifiCredential knownNetworks[] = {
   { // Red 1: TecNM-ITQuerétaro
     "TecNM-ITQuerétaro", "Zorros.ITQ25",
-    IPAddress(172, 20, 0, 44),         // IP Estática (de tus comentarios)
-    IPAddress(172, 20, 0, 1),           // <-- ¡OJO! Reemplaza con el Gateway correcto para esta red
+    IPAddress(172, 20, 0, 44),
+    IPAddress(172, 20, 0, 1),           // <-- ¡OJO! Reemplaza con el Gateway correcto
     IPAddress(255, 255, 0, 0),          // <-- ¡OJO! Reemplaza con la Subred correcta
     IPAddress(172, 20, 0, 1)            // <-- ¡OJO! Reemplaza con el DNS correcto
   },
-  { // Red 2: RED PRUEBA (usará la IP de "prueba")
+  { // Red 2: HUAWEI (RED PRUEBA)
     "HUAWEI-C137", "Wfi@1897", 
-    IPAddress(192, 168, 3, 100),        // IP Estática (de tus comentarios)
-    IPAddress(192, 168, 3, 254),        // Gateway (de tu código)
-    IPAddress(255, 255, 255, 0),        // Subred (de tu código)
-    IPAddress(192, 168, 3, 254)         // DNS (de tu código)
+    IPAddress(192, 168, 3, 100),
+    IPAddress(192, 168, 3, 254),
+    IPAddress(255, 255, 255, 0),
+    IPAddress(192, 168, 3, 254)
   },
-  { // Red 3: Red TecNorte (usará la IP "tercera red")
+  { // Red 3: Red TecNorte
     "SSID_RED-DE_PRUEBA", "CONTRASEÑÁ", 
-    IPAddress(0, 0, 0, 0),              // IP (como pediste)
-    IPAddress(0, 0, 0, 0),              // (No importa si la IP es 0)
-    IPAddress(0, 0, 0, 0),              // (No importa)
-    IPAddress(0, 0, 0, 0)               // (No importa)
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0)
   }
 };
 
-
-// --- Variables globales (sin cambios) ---
 const uint32_t wifi_connected[] = {0x3f840, 0x49f22084, 0xe4110040}; 
 const uint32_t no_wifi[] = {0x403f844, 0x49f22484, 0xe4110040}; 
 char ssid[64]; 
@@ -101,10 +95,9 @@ bool sdCardInitialized = false;
 -----------------User Defined Functions--------------------------------
 ---------------------------------------------------------------------------*/
 
-// --- (updateServo y get_wifi_credentials sin cambios) ---
+// --- (updateServo sin cambios) ---
 void updateServo() {
-  if (servoPos == targetServoPos) { return; 
-  }
+  if (servoPos == targetServoPos) { return; }
   if (millis() - lastServoMove >= servoInterval) { 
     lastServoMove = millis(); 
     if (servoPos < targetServoPos) { 
@@ -117,9 +110,11 @@ void updateServo() {
   }
 }
 
+// --- (get_wifi_credentials con separador) ---
 void get_wifi_credentials() {
-  while (Serial.available() > 0) { Serial.read(); 
-  }
+  Serial.println("================================================");
+  while (Serial.available() > 0) { Serial.read(); }
+  Serial.println("No se pudo conectar a redes conocidas.");
   Serial.println("Por favor, ingrese el nombre de la red WiFi (SSID) y presione Enter:"); 
   while (Serial.available() == 0) {} 
   String ssid_str = Serial.readStringUntil('\n');
@@ -137,15 +132,13 @@ void get_wifi_credentials() {
   Serial.println("Contraseña recibida. Intentando conectar..."); 
 }
 
-// --- (wifi_connect sin cambios, usará las variables globales) ---
+// --- (wifi_connect sin impresiones Serial) ---
 bool wifi_connect() {
   if (WiFi.status() == WL_NO_MODULE) { 
-    Serial.println("Error de comunicación con el módulo WiFi.");
     matrix.loadFrame(no_wifi); 
     return false;
   }
-  Serial.print("Intentando conectar a la red WiFi: ");
-  Serial.println(ssid); 
+  
   matrix.loadSequence(LEDMATRIX_ANIMATION_WIFI_SEARCH); 
   matrix.play(true); 
   
@@ -155,11 +148,10 @@ bool wifi_connect() {
   int attempts = 0; 
   while (WiFi.status() != WL_CONNECTED && attempts < 15) { 
     Serial.print(".");
-    delay(1000);
+    delay(1000); // Esta pausa es la que te permite ver los "...."
     attempts++; 
   }
   if (WiFi.status() != WL_CONNECTED) { 
-    Serial.println("\nNo se pudo conectar a la red WiFi (Timeout).");
     matrix.loadFrame(no_wifi); 
     return false;
   }
@@ -168,19 +160,20 @@ bool wifi_connect() {
   return true;
 }
 
-// --- (wifi_reconnect sin cambios) ---
+// --- (wifi_reconnect con separador) ---
 void wifi_reconnect() {
+  Serial.println("\n================================================");
   Serial.println("Se perdió la conexión WiFi. Reconectando...");
   matrix.loadFrame(no_wifi); 
   delay(1000); 
-  if (wifi_connect()) { 
+  if (wifi_connect()) {
     Serial.println("\n¡Reconexión exitosa!");
     Serial.print("Nueva dirección IP: ");
     Serial.println(WiFi.localIP()); 
   }
 }
 
-// --- (logDataToSD sin cambios) ---
+// --- (logDataToSD, read_sensor_data, send_json_data sin cambios) ---
 void logDataToSD() {
   if (!sdCardInitialized) { return; }  
   File dataFile = SD.open("datalog.csv", FILE_WRITE); 
@@ -201,8 +194,6 @@ void logDataToSD() {
     Serial.println("Error al abrir datalog.csv para escribir"); 
   }
 }
-
-// --- (read_sensor_data sin cambios) ---
 void read_sensor_data() {
   sensors_event_t event;
   dht.temperature().getEvent(&event); 
@@ -227,11 +218,8 @@ void read_sensor_data() {
     isRaining = false;
     targetServoPos = 0; 
   }
-  
   logDataToSD(); 
 }
-
-// --- (send_json_data sin cambios) ---
 void send_json_data(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK"); 
   client.println("Content-Type: application/json"); 
@@ -245,10 +233,7 @@ void send_json_data(WiFiClient & client) {
   client.println(json); 
 }
 
-/*-----------------------------------------------------------------
-----------------------Estructura de la pagina web -----------------
------------------------------------------------------------------*/
-
+// --- (send_web_page con HTML reordenado) ---
 void send_web_page(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK"); 
   client.println("Content-Type: text/html"); 
@@ -452,13 +437,18 @@ void run_local_webserver() {
 void setup() {
   Serial.begin(115200);
   while (!Serial);
+  
+  // --- ¡CAMBIO 1: Pausa para que el monitor se abra! ---
+  delay(2000); // 2 segundos de pausa
+  
+  Serial.println("================================================");
   Serial.println("--- Inicio del Setup ---");
 
   matrix.begin(); 
   myServo.attach(Servo_Pin); 
   myServo.write(servoPos); 
 
-  // Inicializar SD
+  // Inicializar SD (silenciosamente)
   if (!SD.begin(SD_CS_Pin)) { 
     sdCardInitialized = false; 
   } else {
@@ -472,44 +462,50 @@ void setup() {
 
   bool isConnected = false; 
   int numKnownNetworks = sizeof(knownNetworks) / sizeof(knownNetworks[0]); 
-  Serial.println("Buscando redes WiFi conocidas..."); 
+  
+  // --- CAMBIO 2: Mensaje de "Buscando" movido ---
+  Serial.println("Buscando redes WiFi conocidas...");
 
-  // --- BUCLE MODIFICADO ---
+  // --- BUCLE MODIFICADO CON PANTALLAS ---
   for (int i = 0; i < numKnownNetworks; i++) {
-    // Asigna el SSID y Pass
     strncpy(ssid, knownNetworks[i].ssid, sizeof(ssid)); 
     strncpy(pass, knownNetworks[i].pass, sizeof(pass)); 
     ssid[sizeof(ssid) - 1] = '\0'; 
     pass[sizeof(pass) - 1] = '\0'; 
-
-    // --- NUEVO: Asigna las IPs globales para esta red ---
     staticIP = knownNetworks[i].ip;
     gateway = knownNetworks[i].gateway;
     subnet = knownNetworks[i].subnet;
     dns = knownNetworks[i].dns;
     
-    // Ahora llama a wifi_connect(), que usará las variables globales que acabamos de asignar
-    if (wifi_connect()) { 
+    // --- CAMBIO 3: Separador ANTES de cada intento ---
+    Serial.println("================================================");
+    Serial.print("Intentando conectar a la red WiFi: ");
+    Serial.println(ssid);
+    
+    if (wifi_connect()) { // wifi_connect() ahora solo imprime "....."
       isConnected = true;
       break; 
     } else {
-      Serial.println("... intento fallido."); 
-      WiFi.disconnect(); 
-      delay(100); 
+      Serial.println("\nNo se pudo conectar a la red WiFi (Timeout).");
+      Serial.println("... intento fallido.");
+      // No necesitamos un delay, el bucle for pasará al siguiente
     }
   }
   // --- FIN DE LA MODIFICACIÓN ---
 
-  // Si ninguna red conocida funcionó, pedir credenciales manualmente
   if (!isConnected) {
-    Serial.println("\nNo se pudo conectar a ninguna red conocida."); 
     get_wifi_credentials(); 
+    Serial.println("================================================");
+    Serial.println("Intentando conectar con credenciales manuales...");
+    Serial.print("SSID: ");
+    Serial.println(ssid);
     isConnected = wifi_connect(); 
   }
 
-  // Continuar con el resto del setup SÓLO SI hay conexión
+  // --- PANTALLA FINAL (Como "CUARTA PANTALLA" o Fallo) ---
+  Serial.println("\n================================================");
   if (isConnected) {
-    Serial.println("\n¡Conexión a WiFi e IP obtenida exitosamente!"); 
+    Serial.println("¡Conexión a WiFi e IP obtenida exitosamente!"); 
     Serial.print("Red conectada: "); 
     Serial.println(ssid); 
     Serial.print("Dirección IP asignada: "); 
@@ -522,23 +518,24 @@ void setup() {
     
     if (!mdns.begin("sistemaclima-tecnm")) { 
       Serial.println("Error al iniciar MDNS.");
-    } else {
-      mdns.addServiceRecord("_http._tcp", 80, (MDNSServiceProtocol_t)1); 
     }
   } else {
-    Serial.println("FALLO EN LA CONEXIÓN. No se pudo conectar a redes conocidas ni manuales."); 
+    Serial.println("FALLO EN LA CONEXIÓN.");
+    Serial.println("No se pudo conectar a redes conocidas ni manuales."); 
   }
 
-  pinMode(Rain_SensorPin, INPUT); 
-  pinMode(Air_SensorPin, INPUT); 
-  dht.begin(); 
+  // --- Resumen de Sensores y SD ---
+  Serial.println("================================================"); 
   if (!bmp.begin()) { 
     Serial.println("No se encontró el sensor BMP085, revisar conexiones.");
-  } 
+  } else {
+    Serial.println("Sensor BMP085 (Presión) OK.");
+  }
   
-  Serial.println("================================================"); 
   if (!sdCardInitialized) {
       Serial.println("No se sincronizo la SD"); 
+  } else {
+      Serial.println("Tarjeta SD OK.");
   }
   
   Serial.println("--- Setup Completado ---"); 
