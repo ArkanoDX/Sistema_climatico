@@ -11,7 +11,7 @@ from collections import deque
 from export_utils import export_data_to_excel
 
 
-# --- LÓGICA DE DETECCIÓN  ---
+# --- LÓGICA DE DETECCIÓN ---
 class ArduinoListener(ServiceListener):
     def __init__(self):
         self.arduino_info = None
@@ -80,12 +80,18 @@ class EstacionApp(Ui_MainWindow):
     def __init__(self):
         super().__init__()
 
-        self.ARDUINO_STATIC_IP = "192.168.3.100"
+        self.KNOWN_IPS = [
+            "172.20.0.44",  # 1. TecNM-ITQuerétaro
+            "192.168.3.100",  # 2. HUAWEI-C137
+            #"0.0.0.0"  # 3. TecNorte
+        ]
+        self.current_ip_index = 0
+
         self.arduino_ip = None
         self.data_thread = None
 
         self.is_connected = False
-        self.has_connected_once = False  # <--  Para rastrear la primera conexión
+        self.has_connected_once = False
         self.connection_alert_box = None
 
         # Listas para el gráfico
@@ -107,17 +113,39 @@ class EstacionApp(Ui_MainWindow):
         self.search_btn.clicked.connect(self.iniciar_busqueda_arduino)
         self.importar_btn.clicked.connect(self.exportar_a_excel)
 
-        self.iniciar_conexion_automatica()
+        self.iniciar_conexion_secuencial()
 
-    def iniciar_conexion_automatica(self):
-        self.statusBar().showMessage(f"Intentando conexión automática a IP estática: {self.ARDUINO_STATIC_IP}...")
-        self.arduino_ip = self.ARDUINO_STATIC_IP
+    def stop_current_worker(self):
+        """Función de ayuda para detener cualquier hilo de datos activo."""
+        if self.data_thread and self.data_thread.isRunning():
+            self.data_worker.stop()
+            self.data_thread.quit()
+            self.data_thread.wait()
+
+    def iniciar_conexion_secuencial(self):
+        """
+        Intenta conectarse a la IP actual en la lista self.KNOWN_IPS.
+        """
+        if self.current_ip_index >= len(self.KNOWN_IPS):
+            self.statusBar().showMessage("Conexión automática fallida. Use 'BUSCAR IP'.")
+            self.search_btn.setEnabled(True)
+            self.search_btn.setText("BUSCAR IP")
+            return
+
+        ip_to_try = self.KNOWN_IPS[self.current_ip_index]
+
+        self.statusBar().showMessage(f"Intentando conexión automática a {ip_to_try}...")
+        self.arduino_ip = ip_to_try
         self.ip_display.setText(self.arduino_ip)
         self.search_btn.setEnabled(False)
-        self.search_btn.setText("Conectado")
+        self.search_btn.setText("Conectando...")
+
         self.iniciar_hilo_trabajador()
 
     def iniciar_busqueda_arduino(self):
+        """Método 2: Detiene cualquier intento y usa Zeroconf."""
+        self.stop_current_worker()
+
         self.search_btn.setEnabled(False)
         self.search_btn.setText("Buscando...")
         self.statusBar().showMessage("Buscando Arduino en la red...")
@@ -144,6 +172,9 @@ class EstacionApp(Ui_MainWindow):
             self.solicitar_ip_manualmente()
 
     def solicitar_ip_manualmente(self):
+        """Método 3: Fallback manual."""
+        self.stop_current_worker()
+
         ip, ok = QInputDialog.getText(self, 'IP del Arduino',
                                       'No se encontró el Arduino.\nPor favor, ingrese la dirección IP:')
         if ok and ip:
@@ -163,8 +194,6 @@ class EstacionApp(Ui_MainWindow):
         if self.connection_alert_box:
             self.connection_alert_box.accept()
             self.connection_alert_box = None
-
-        # NO reseteamos self.has_connected_once aquí
 
         self.data_thread = QtCore.QThread()
         self.data_worker = ArduinoWorker(arduino_ip=self.arduino_ip)
@@ -208,26 +237,25 @@ class EstacionApp(Ui_MainWindow):
     def _actualizar_qai(self, qai):
         self.actualizar_sensor('qai', str(qai))
 
-    # --- LÓGICA DE ALERTA ---
     def actualizar_todo(self, data):
         if not self.is_connected:
             self.is_connected = True
             self.statusBar().showMessage(f"¡Conexión establecida con {self.arduino_ip}!")
 
+            self.search_btn.setEnabled(False)
+            self.search_btn.setText("Conectado")
+
             if self.connection_alert_box:
                 self.connection_alert_box.accept()
                 self.connection_alert_box = None
 
-            # Solo muestra el pop-up si YA se había conectado antes
             if self.has_connected_once:
                 QMessageBox.information(self,
                                         "Conexión Recuperada",
                                         f"Se ha reconectado exitosamente al Modulo en {self.arduino_ip}.")
             else:
-                # Si es la primera vez, solo marcamos la variable y no mostramos pop-up
                 self.has_connected_once = True
 
-        # --- Lógica de actualización ---
         self._actualizar_temp(data['temperature'])
         self._actualizar_hum(data['humidity'])
         self._actualizar_presion(data['pressure'])
@@ -260,17 +288,28 @@ class EstacionApp(Ui_MainWindow):
         formato_deseado = "dd/MM/yy hh:mm ap"
         self.fecha_hora_display.setText(now.toString(formato_deseado))
 
+    # --- LÓGICA DE ERROR MODIFICADA ---
     def mostrar_error(self, mensaje):
-        self.statusBar().showMessage(f"Error: {mensaje}. Reintentando...")
+        self.statusBar().showMessage(f"{mensaje}. Reintentando...")
+
+        # Si el error ocurre DURANTE la secuencia automática inicial...
+        if not self.has_connected_once:
+            print(f"Intento fallido para {self.arduino_ip}. Probando siguiente IP.")
+
+            # Detenemos el worker actual ANTES de iniciar el siguiente.
+            self.stop_current_worker()
+
+            self.current_ip_index += 1  # Pasamos a la siguiente IP
+            self.iniciar_conexion_secuencial()  # Intentamos de nuevo
+            return  # No mostramos pop-up ni habilitamos el botón
+
+        # Si el error ocurre DESPUÉS de una conexión exitosa...
         self.search_btn.setEnabled(True)
         self.search_btn.setText("BUSCAR IP")
 
-        # Solo mostramos el pop-up la *primera vez* que se pierde
-        # Y solo si ya habíamos establecido una conexión inicial
         if self.is_connected and self.has_connected_once:
             self.is_connected = False
             print(f"¡Conexión perdida! Error: {mensaje}")
-
             self.connection_alert_box = QMessageBox(self)
             self.connection_alert_box.setIcon(QMessageBox.Warning)
             self.connection_alert_box.setWindowTitle("Conexión Perdida")
@@ -280,15 +319,10 @@ class EstacionApp(Ui_MainWindow):
             self.connection_alert_box.setStandardButtons(QMessageBox.Ok)
             self.connection_alert_box.show()
         else:
-            # Si el error ocurre en el *primer* intento de conexión (antes de 'has_connected_once' sea True)
-            # simplemente marcamos 'is_connected' como False y no mostramos el pop-up.
             self.is_connected = False
 
     def closeEvent(self, event):
-        if self.data_thread and self.data_thread.isRunning():
-            self.data_worker.stop()
-            self.data_thread.quit()
-            self.data_thread.wait()
+        self.stop_current_worker()
         event.accept()
 
     def exportar_a_excel(self):
