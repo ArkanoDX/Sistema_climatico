@@ -245,6 +245,7 @@ void send_json_data(WiFiClient & client) {
            ",\"rainfall\":" + String(rainfall) + "}";
   client.println(json); 
 }
+
 void send_web_page(WiFiClient & client) {
   client.println("HTTP/1.1 200 OK"); 
   client.println("Content-Type: text/html"); 
@@ -257,41 +258,155 @@ void send_web_page(WiFiClient & client) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Climatico TecNM</title>
+    
     <style>
-        body { font-family: Arial, sans-serif; background: #1f2177; color: #333; text-align: center; padding: 20px; margin: 0; }
-        .container { max-width: 900px; margin: auto; }
-        .data-container { display: flex; flex-direction: column; gap: 10px; }
-        .data-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); flex: 1; margin: 5px; text-align: center; }
-        .graph { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, .1); margin-top: 15px; }
-        canvas { width: 100%; height: 400px; }
-        .title-container { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 20px; }
-        .title-container h1 { font-size: 2rem; color: #fff; margin: 0; }
-        .title-container img { width: 80px; height: auto; }
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1f2177; 
+            color: #333; 
+            text-align: center; 
+            padding: 20px; 
+            margin: 0; 
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+        }
+        .data-container { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+        .data-card { 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .1); 
+            flex: 1; 
+            margin: 5px; 
+            text-align: center; 
+        }
+        .graph { 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .1); 
+            margin-top: 15px; 
+        }
+        canvas { 
+            width: 100%; 
+            height: 400px; 
+        }
+        .title-container { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 30px; 
+            margin-bottom: 20px; 
+        }
+        .title-container h1 { 
+            font-size: 2rem; 
+            color: #fff; 
+            margin: 0; 
+        }
+        .title-container img { 
+            width: 80px; 
+            height: auto; 
+        }
     </style>
 </head>
+
 <body>
-    <div class="title-container"><h1>Sistema Climatico TecNm</h1></div>
-    <div class='container'>
-        <div id='weather' class='data-container'></div>
-        <div class='graph'><canvas id='combinedGraph'></canvas></div>
+    <div class="title-container">
+        <h1>Sistema Climatico TecNm</h1>
     </div>
+    
+    <div class='container'>
+        <div id='weather' class='data-container'>
+            </div>
+        <div class='graph'>
+            <canvas id='combinedGraph'></canvas>
+        </div>
+    </div>
+    
     <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+    
     <script>
         const ctxCombined = document.getElementById('combinedGraph').getContext('2d');
         const combinedChart = new Chart(ctxCombined, {
             type: 'line',
-            data: { labels: [], datasets: [ { label: 'Temperatura (°C)', data: [], borderColor: '#ff5733', backgroundColor: 'rgba(255, 87, 51, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }, { label: 'Humedad (%)', data: [], borderColor: '#2196f3', backgroundColor: 'rgba(33, 150, 243, 0.2)', fill: true, tension: 0.4, pointRadius: 3 } ] },
-            options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { title: { display: true, text: 'Tiempo' } }, y: { beginAtZero: true, min: 0, max: 100, ticks: { stepSize: 10 } } } }
+            data: { 
+                labels: [], 
+                datasets: [ 
+                    { 
+                        label: 'Temperatura (°C)', 
+                        data: [], 
+                        borderColor: '#ff5733', 
+                        backgroundColor: 'rgba(255, 87, 51, 0.2)', 
+                        fill: true, 
+                        tension: 0.4, 
+                        pointRadius: 3 
+                    }, 
+                    { 
+                        label: 'Humedad (%)', 
+                        data: [], 
+                        borderColor: '#2196f3', 
+                        backgroundColor: 'rgba(33, 150, 243, 0.2)', 
+                        fill: true, 
+                        tension: 0.4, 
+                        pointRadius: 3 
+                    } 
+                ] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                animation: false, 
+                scales: { 
+                    x: { 
+                        title: { 
+                            display: true, 
+                            text: 'Tiempo' // Título del eje X
+                        } 
+                    }, 
+                    y: { 
+                        beginAtZero: true, 
+                        min: 0, 
+                        max: 100, 
+                        ticks: { 
+                            stepSize: 10 
+                        } 
+                    } 
+                } 
+            }
         });
+
+        // Función para pedir datos al Arduino
         function fetchWeatherData() {
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
-             document.getElementById('weather').innerHTML = `<div class='data-card'>🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 🌨️ Humedad: ${data.humidity}%</div><div class='data-card'>🌀 Presión: ${data.pressure} mbar </div><div class='data-card'>🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 🌧️ Lluvia: ${data.rainfall ? 'Yes' : 'No'}</div>`;            
+                    // Actualiza las tarjetas de datos
+                    document.getElementById('weather').innerHTML = `
+                        <div class='data-card'>
+                            🌡️ Temp: ${data.temperature}°C &nbsp;&nbsp;&nbsp; 
+                            🌨️ Humedad: ${data.humidity}%
+                        </div>
+                        <div class='data-card'>
+                            🌀 Presión: ${data.pressure} mbar 
+                        </div>
+                        <div class='data-card'>
+                            🌪️ AQI: ${data.aqi} &nbsp;&nbsp;&nbsp; 
+                            🌧️ Lluvia: ${data.rainfall ? 'Sí' : 'No'}
+                        </div>`; 
+                    
+                    // Actualiza el gráfico
                     let time = new Date().toLocaleTimeString();
                     combinedChart.data.labels.push(time);
                     combinedChart.data.datasets[0].data.push(data.temperature);
                     combinedChart.data.datasets[1].data.push(data.humidity);
+                    
+                    // Limita el gráfico a 10 puntos
                     if (combinedChart.data.labels.length > 10) {
                         combinedChart.data.labels.shift();
                         combinedChart.data.datasets[0].data.shift();
@@ -303,6 +418,8 @@ void send_web_page(WiFiClient & client) {
                      console.error("Error al obtener datos:", error);
                 });
         }        
+        
+        // Pide datos cada 2 segundos
         setInterval(fetchWeatherData, 2000);
     </script>
 </body>
@@ -310,6 +427,7 @@ void send_web_page(WiFiClient & client) {
 )rawliteral"; 
   client.print(html);
 }
+
 void run_local_webserver() {
   WiFiClient client = server.available(); 
   if (client) {
@@ -323,7 +441,6 @@ void run_local_webserver() {
     client.stop();
   }
 }
-
 /*-----------------------------------------------------------------
 -----------------------Setup Function------------------------------
 ------------------------------------------------------------------*/
