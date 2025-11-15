@@ -81,9 +81,9 @@ class EstacionApp(Ui_MainWindow):
         super().__init__()
 
         self.KNOWN_IPS = [
+            "172.16.42.213",  # 3. TecNorte
             "172.20.0.44",  # 1. TecNM-ITQuerétaro
             "192.168.3.100",  # 2. HUAWEI-C137
-            #"0.0.0.0"  # 3. TecNorte
         ]
         self.current_ip_index = 0
 

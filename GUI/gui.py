@@ -199,7 +199,7 @@ class Ui_MainWindow(QMainWindow):
 
         # --- Configuramos el gráfico ---
         self.plot_widget.setLabel('left', 'Valor')
-        self.plot_widget.setLabel('bottom', 'Tiempo (lecturas)')
+        self.plot_widget.setLabel('bottom', 'Tiempo (S)')
         self.plot_widget.addLegend()
         self.plot_widget.showGrid(x=True, y=True)
 

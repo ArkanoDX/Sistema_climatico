@@ -52,6 +52,14 @@ struct WifiCredential {
 };
 
 WifiCredential knownNetworks[] = {
+  {
+    "ITQ-Alumnos", "ITQ.Alumnos2013", 
+    IPAddress(192, 168, 3, 100),
+    IPAddress(192, 168, 3, 254),
+    IPAddress(255, 255, 255, 0),
+    IPAddress(192, 168, 3, 254)  
+  
+  },
   { "TecNM-ITQuerétaro", "Zorros.ITQ25",
     IPAddress(172, 20, 0, 44),
     IPAddress(172, 20, 0, 1),
@@ -64,12 +72,6 @@ WifiCredential knownNetworks[] = {
     IPAddress(255, 255, 255, 0),
     IPAddress(192, 168, 3, 254)
   },
-  { "SSID_RED-DE_PRUEBA", "CONTRASEÑÁ", 
-    IPAddress(0, 0, 0, 0),
-    IPAddress(0, 0, 0, 0),
-    IPAddress(0, 0, 0, 0),
-    IPAddress(0, 0, 0, 0)
-  }
 };
 
 const uint32_t wifi_connected[] = {0x3f840, 0x49f22084, 0xe4110040}; 
