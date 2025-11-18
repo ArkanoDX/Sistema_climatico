@@ -54,10 +54,10 @@ struct WifiCredential {
 WifiCredential knownNetworks[] = {
   {
     "ITQ-Alumnos", "ITQ.Alumnos2013", 
-    IPAddress(192, 168, 3, 100),
-    IPAddress(192, 168, 3, 254),
-    IPAddress(255, 255, 255, 0),
-    IPAddress(192, 168, 3, 254)  
+    IPAddress(172, 16, 50, 200),    // IP Estática sugerida (dentro del rango .48.x - .55.x)
+    IPAddress(172, 16, 48, 1),      // Puerta de enlace (Gateway)
+    IPAddress(255, 255, 248, 0),    // Máscara de subred
+    IPAddress(172, 16, 48, 1)  
   
   },
   { "TecNM-ITQuerétaro", "Zorros.ITQ25",
